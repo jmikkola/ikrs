@@ -20,6 +20,7 @@ impl Location {
         new_location
     }
 
+    #[cfg(test)]
     pub fn is_before(&self, other: Location) -> bool {
         if other.line > self.line {
             return true;

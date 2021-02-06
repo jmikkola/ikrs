@@ -153,7 +153,7 @@ pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
             },
             InName => {
                 debug_assert!(!current.is_empty());
-                if c.is_alphanumeric() || c == '_' {
+                if c.is_alphanumeric() || c == '_' || c == '?' {
                     current.push(c);
                     continue;
                 }
@@ -360,6 +360,7 @@ fn name_token(name: String) -> Token {
     }
 }
 
+#[cfg(test)]
 fn untokenize(tokens: Vec<(Token, Location)>) -> String {
     let mut result = String::new();
     let mut here = Location::new();
@@ -417,6 +418,8 @@ mod test {
     fn test_words() {
         assert_is_token(ValueName("foo".to_string()), "foo");
         assert_is_token(ValueName("x".to_string()), "x");
+        assert_is_token(ValueName("is_ready?".to_string()), "is_ready?");
+        assert_is_token(Unknown("?".to_string()), "?");
         assert_is_token(ValueName("b_A_r2".to_string()), "b_A_r2");
         assert_is_token(TypeName("Int".to_string()), "Int");
         assert_is_token(TypeName("X".to_string()), "X");
@@ -494,6 +497,7 @@ mod test {
         assert_untokenizes("     123");
         assert_untokenizes(" \n\n    123");
         assert_untokenizes("===(+|>=>||^");
+        assert_untokenizes("T234@#$%!@#$!==)(123asdfa .. ., %");
         assert_untokenizes("x  /*\n comment */ +  123");
         assert_untokenizes("type Foo enum:\n  Bar\n  Baz // comment\n")
     }
