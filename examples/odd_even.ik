@@ -21,5 +21,8 @@ fn main():
       },
     },
   }
-  print(String(o))
+  /*
+    block comment
+  **/
+  print(String(o)) // line comment
   print("\n")

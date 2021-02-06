@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::fs::File;
 
 fn main() -> io::Result<()> {
-    let mut f = File::open("examples/odd_even.ik")?;
+    let f = File::open("examples/odd_even.ik")?;
     let mut reader = io::BufReader::new(f);
     let mut contents = String::new();
     reader.read_to_string(&mut contents)?;
@@ -42,6 +42,10 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
     enum State {
         Start,
         Operator,
+        Slash,
+        LineComment,
+        BlockComment,
+        BlockCommentStar,
         InName, // or keyword
         InType,
         InInteger,
@@ -128,6 +132,50 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                     },
                 }
             },
+            Slash => {
+                assert!(current.is_empty());
+                // TODO: Block comment
+                if c == '/' {
+                    state = LineComment;
+                    continue;
+                } else if c == '*' {
+                    state = BlockComment;
+                    continue;
+                } else {
+                    tokens.push(Token::Slash);
+                }
+            },
+            BlockComment => {
+                if c == '*' {
+                    state = BlockCommentStar;
+                } else {
+                    current.push(c);
+                }
+                continue;
+            },
+            BlockCommentStar => {
+                if c == '/' {
+                    tokens.push(Token::BlockComment(current));
+                    current = String::new();
+                    state = Start;
+                } else if c == '*' {
+                    current.push(c);
+                    state = BlockCommentStar;
+                } else {
+                    current.push('*');
+                    current.push(c);
+                    state = BlockComment;
+                }
+                continue;
+            },
+            LineComment => {
+                if c == '\n' {
+                    tokens.push(Token::LineComment(current));
+                } else {
+                    current.push(c);
+                    continue;
+                }
+            },
             InName => {
                 assert!(!current.is_empty());
                 if c.is_alphanumeric() || c == '_' {
@@ -176,7 +224,6 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
             },
         }
 
-
         current = String::new();
         state = Start;
 
@@ -200,7 +247,9 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
             '+' => tokens.push(Token::Plus),
             '-' => tokens.push(Token::Minus),
             '*' => tokens.push(Token::Star),
-            '/' => tokens.push(Token::Slash), // TODO: Accept // comments
+            '/' => {
+                state = Slash;
+            },
             '%' => tokens.push(Token::Percent),
             '~' => tokens.push(Token::Tilda),
             '^' => tokens.push(Token::Caret),
@@ -251,6 +300,16 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                         panic!("unexpected prev char in operator");
                     },
                 }
+            },
+            Slash => {
+                tokens.push(Token::Slash);
+            },
+            LineComment => {
+                tokens.push(Token::LineComment(current));
+            },
+            BlockComment | BlockCommentStar => {
+                // Block comment was never closed
+                tokens.push(Token::Unknown(current));
             },
             InName => {
                 tokens.push(name_token(current));
