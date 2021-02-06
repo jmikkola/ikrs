@@ -22,3 +22,4 @@ fn main():
     },
   }
   print(String(o))
+  print("\n")
