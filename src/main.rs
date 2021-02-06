@@ -55,6 +55,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
         InInteger,
         InFloat,
         InString,
+        InStringEscape,
         Unknown,
     }
 
@@ -228,9 +229,14 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                     tokens.push((Token::StringLiteral(current), last_location));
                     current = String::new();
                     state = Start;
+                } else if c == '\\' {
+                    state = InStringEscape;
                 }
-                // TODO: Handle escape characters
                 continue;
+            },
+            InStringEscape => {
+                current.push(c);
+                state = InString;
             },
             Unknown => {
                 debug_assert!(!current.is_empty());
@@ -350,7 +356,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 let n = current.parse();
                 tokens.push((Token::FloatLiteral(n.unwrap()), last_location));
             },
-            InString => {
+            InString | InStringEscape => {
                 // Unclosed string
                 tokens.push((Token::Unknown(current), last_location));
             },
