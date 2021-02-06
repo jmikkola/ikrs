@@ -12,7 +12,7 @@ fn main() -> io::Result<()> {
     let mut contents = String::new();
     reader.read_to_string(&mut contents)?;
 
-    let tokens = tokenize(contents);
+    let tokens = tokenize(contents.as_str());
     println!("tokens: {:?}", tokens);
     Ok(())
 }
