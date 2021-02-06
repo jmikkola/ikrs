@@ -67,10 +67,10 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
         // This section should `continue;` if it ate the current character
         match state {
             Start => {
-                assert!(current.is_empty());
+                debug_assert!(current.is_empty());
             },
             Operator => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 let previous = current.chars().next().unwrap();
                 match previous {
                     '=' => {
@@ -139,8 +139,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 }
             },
             Slash => {
-                assert!(current.is_empty());
-                // TODO: Block comment
+                debug_assert!(current.is_empty());
                 if c == '/' {
                     state = LineComment;
                     continue;
@@ -183,7 +182,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 }
             },
             InName => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 if c.is_alphanumeric() || c == '_' {
                     current.push(c);
                     continue;
@@ -191,7 +190,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 tokens.push((name_token(current), last_location));
             },
             InType => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 if c.is_alphanumeric() || c == '_' {
                     current.push(c);
                     continue;
@@ -199,7 +198,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 tokens.push((Token::TypeName(current), last_location));
             },
             InInteger => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 if c.is_ascii_digit() {
                     current.push(c);
                     continue;
@@ -209,7 +208,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 tokens.push((Token::IntLiteral(n.unwrap()), last_location));
             },
             InString => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 current.push(c);
                 if c == '"' {
                     tokens.push((Token::StringLiteral(current), last_location));
@@ -220,7 +219,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 continue;
             },
             Unknown => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 if !(c.is_whitespace() || c == '(' || c == ')'
                      || c == '[' || c == ']' || c == '{' || c == '}') {
                     current.push(c);
@@ -299,7 +298,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 panic!("current should always empty in the starting state");
             },
             Operator => {
-                assert!(!current.is_empty());
+                debug_assert!(!current.is_empty());
                 let previous = current.chars().next().unwrap();
                 match previous {
                     '=' => tokens.push((Token::Equals, last_location)),
