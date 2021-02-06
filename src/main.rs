@@ -35,9 +35,13 @@ fn name_token(name: String) -> Token {
     }
 }
 
-fn tokenize(text: String) -> io::Result<Vec<Token>> {
+fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
     let mut tokens = vec![];
     let mut current = String::new();
+    // Location where the current token started
+    let mut last_location = Location::new();
+    // Location of the current character
+    let mut location = Location::new();
 
     enum State {
         Start,
@@ -58,6 +62,8 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
     let mut state = State::Start;
 
     for c in text.chars() {
+        location.update(c);
+
         // This section should `continue;` if it ate the current character
         match state {
             Start => {
@@ -69,62 +75,62 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                 match previous {
                     '=' => {
                         if c == '=' {
-                            tokens.push(Token::DoubleEquals);
+                            tokens.push((Token::DoubleEquals, last_location));
                             current = String::new();
                             state = Start;
                             continue;
                         } else {
-                            tokens.push(Token::Equals);
+                            tokens.push((Token::Equals, last_location));
                         }
                     },
                     '!' => {
                         if c == '=' {
-                            tokens.push(Token::NotEquals);
+                            tokens.push((Token::NotEquals, last_location));
                             current = String::new();
                             state = Start;
                             continue;
                         } else {
-                            tokens.push(Token::Bang);
+                            tokens.push((Token::Bang, last_location));
                         }
                     },
                     '<' => {
                         if c == '=' {
-                            tokens.push(Token::LessEquals);
+                            tokens.push((Token::LessEquals, last_location));
                             current = String::new();
                             state = Start;
                             continue;
                         } else {
-                            tokens.push(Token::Less);
+                            tokens.push((Token::Less, last_location));
                         }
                     },
                     '>' => {
                         if c == '=' {
-                            tokens.push(Token::GreaterEquals);
+                            tokens.push((Token::GreaterEquals, last_location));
                             current = String::new();
                             state = Start;
                             continue;
                         } else {
-                            tokens.push(Token::Greater);
+                            tokens.push((Token::Greater, last_location));
                         }
                     },
                     '&' => {
                         if c == '&' {
-                            tokens.push(Token::DoubleAnd);
+                            tokens.push((Token::DoubleAnd, last_location));
                             current = String::new();
                             state = Start;
                             continue;
                         } else {
-                            tokens.push(Token::SingleAnd);
+                            tokens.push((Token::SingleAnd, last_location));
                         }
                     },
                     '|' => {
                         if c == '|' {
-                            tokens.push(Token::DoubleOr);
+                            tokens.push((Token::DoubleOr, last_location));
                             current = String::new();
                             state = Start;
                             continue;
                         } else {
-                            tokens.push(Token::SingleOr);
+                            tokens.push((Token::SingleOr, last_location));
                         }
                     },
                     _ => {
@@ -142,7 +148,7 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                     state = BlockComment;
                     continue;
                 } else {
-                    tokens.push(Token::Slash);
+                    tokens.push((Token::Slash, last_location));
                 }
             },
             BlockComment => {
@@ -155,7 +161,7 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
             },
             BlockCommentStar => {
                 if c == '/' {
-                    tokens.push(Token::BlockComment(current));
+                    tokens.push((Token::BlockComment(current), last_location));
                     current = String::new();
                     state = Start;
                 } else if c == '*' {
@@ -170,7 +176,7 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
             },
             LineComment => {
                 if c == '\n' {
-                    tokens.push(Token::LineComment(current));
+                    tokens.push((Token::LineComment(current), last_location));
                 } else {
                     current.push(c);
                     continue;
@@ -182,7 +188,7 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                     current.push(c);
                     continue;
                 }
-                tokens.push(name_token(current));
+                tokens.push((name_token(current), last_location));
             },
             InType => {
                 assert!(!current.is_empty());
@@ -190,7 +196,7 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                     current.push(c);
                     continue;
                 }
-                tokens.push(Token::TypeName(current));
+                tokens.push((Token::TypeName(current), last_location));
             },
             InInteger => {
                 assert!(!current.is_empty());
@@ -200,13 +206,13 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                 }
                 // TODO: Handle floats
                 let n = i64::from_str_radix(current.as_str(), 10);
-                tokens.push(Token::IntLiteral(n.unwrap()));
+                tokens.push((Token::IntLiteral(n.unwrap()), last_location));
             },
             InString => {
                 assert!(!current.is_empty());
                 current.push(c);
                 if c == '"' {
-                    tokens.push(Token::StringLiteral(current));
+                    tokens.push((Token::StringLiteral(current), last_location));
                     current = String::new();
                     state = Start;
                 }
@@ -220,7 +226,7 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                     current.push(c);
                     continue;
                 }
-                tokens.push(Token::Unknown(current));
+                tokens.push((Token::Unknown(current), last_location));
             },
         }
 
@@ -230,38 +236,42 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
         // If the previous section didn't handle the current character, handle it here
         match c {
             '\n' => {
-                tokens.push(Token::Newline);
+                tokens.push((Token::Newline, location));
             },
             _ if c.is_whitespace() => {
                 // Ignore it
             },
-            '.' => tokens.push(Token::Dot),
-            ',' => tokens.push(Token::Comma),
-            ':' => tokens.push(Token::Colon),
-            '[' => tokens.push(Token::LBracket),
-            ']' => tokens.push(Token::RBracket),
-            '(' => tokens.push(Token::LParen),
-            ')' => tokens.push(Token::RParen),
-            '{' => tokens.push(Token::LBrace),
-            '}' => tokens.push(Token::RBrace),
-            '+' => tokens.push(Token::Plus),
-            '-' => tokens.push(Token::Minus),
-            '*' => tokens.push(Token::Star),
+            '.' => tokens.push((Token::Dot, location)),
+            ',' => tokens.push((Token::Comma, location)),
+            ':' => tokens.push((Token::Colon, location)),
+            '[' => tokens.push((Token::LBracket, location)),
+            ']' => tokens.push((Token::RBracket, location)),
+            '(' => tokens.push((Token::LParen, location)),
+            ')' => tokens.push((Token::RParen, location)),
+            '{' => tokens.push((Token::LBrace, location)),
+            '}' => tokens.push((Token::RBrace, location)),
+            '+' => tokens.push((Token::Plus, location)),
+            '-' => tokens.push((Token::Minus, location)),
+            '*' => tokens.push((Token::Star, location)),
             '/' => {
+                last_location = location;
                 state = Slash;
             },
-            '%' => tokens.push(Token::Percent),
-            '~' => tokens.push(Token::Tilda),
-            '^' => tokens.push(Token::Caret),
+            '%' => tokens.push((Token::Percent, location)),
+            '~' => tokens.push((Token::Tilda, location)),
+            '^' => tokens.push((Token::Caret, location)),
             '=' | '!' | '>' | '<' | '&' | '|' => {
                 current.push(c);
+                last_location = location;
                 state = Operator;
             },
             '"' => {
                 current.push(c);
+                last_location = location;
                 state = InString;
             },
             _ if c.is_alphabetic() || c == '_' => {
+                last_location = location;
                 current.push(c);
                 if c.is_uppercase() {
                     state = InType;
@@ -270,10 +280,12 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                 }
             },
             _ if c.is_ascii_digit() => {
+                last_location = location;
                 current.push(c);
                 state = InInteger;
             },
             _ => {
+                last_location = location;
                 current.push(c);
                 state = Unknown;
             }
@@ -290,43 +302,43 @@ fn tokenize(text: String) -> io::Result<Vec<Token>> {
                 assert!(!current.is_empty());
                 let previous = current.chars().next().unwrap();
                 match previous {
-                    '=' => tokens.push(Token::Equals),
-                    '!' => tokens.push(Token::Bang),
-                    '<' => tokens.push(Token::Less),
-                    '>' => tokens.push(Token::Greater),
-                    '&' => tokens.push(Token::SingleAnd),
-                    '|' => tokens.push(Token::SingleOr),
+                    '=' => tokens.push((Token::Equals, last_location)),
+                    '!' => tokens.push((Token::Bang, last_location)),
+                    '<' => tokens.push((Token::Less, last_location)),
+                    '>' => tokens.push((Token::Greater, last_location)),
+                    '&' => tokens.push((Token::SingleAnd, last_location)),
+                    '|' => tokens.push((Token::SingleOr, last_location)),
                     _ => {
                         panic!("unexpected prev char in operator");
                     },
                 }
             },
             Slash => {
-                tokens.push(Token::Slash);
+                tokens.push((Token::Slash, last_location));
             },
             LineComment => {
-                tokens.push(Token::LineComment(current));
+                tokens.push((Token::LineComment(current), last_location));
             },
             BlockComment | BlockCommentStar => {
                 // Block comment was never closed
-                tokens.push(Token::Unknown(current));
+                tokens.push((Token::Unknown(current), last_location));
             },
             InName => {
-                tokens.push(name_token(current));
+                tokens.push((name_token(current), last_location));
             },
             InType => {
-                tokens.push(Token::TypeName(current));
+                tokens.push((Token::TypeName(current), last_location));
             },
             InInteger => {
                 let n = i64::from_str_radix(current.as_str(), 10);
-                tokens.push(Token::IntLiteral(n.unwrap()));
+                tokens.push((Token::IntLiteral(n.unwrap()), last_location));
             },
             InString => {
                 // Unclosed string
-                tokens.push(Token::Unknown(current));
+                tokens.push((Token::Unknown(current), last_location));
             },
             Unknown => {
-                tokens.push(Token::Unknown(current));
+                tokens.push((Token::Unknown(current), last_location));
             },
         }
     }
@@ -400,7 +412,23 @@ enum Token {
     BlockComment(String),
 }
 
-// struct Location {
-//     col: u32,
-//     line: u32,
-// }
+#[derive(Debug, Clone, Copy)]
+struct Location {
+    col: u32,
+    line: u32,
+}
+
+impl Location {
+    fn new() -> Self {
+        Self{col: 0, line: 0}
+    }
+
+    fn update(&mut self, c: char) {
+        if c == '\n' {
+            self.line += 1;
+            self.col = 0;
+        } else {
+            self.col += 1;
+        }
+    }
+}
