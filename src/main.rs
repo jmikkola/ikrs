@@ -5,6 +5,7 @@ use std::fs::File;
 mod parser;
 
 use parser::tokens::Token;
+use parser::location::Location;
 
 fn main() -> io::Result<()> {
     let f = File::open("examples/odd_even.ik")?;
@@ -372,26 +373,4 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
     }
 
     Ok(tokens)
-}
-
-
-#[derive(Debug, Clone, Copy)]
-struct Location {
-    col: u32,
-    line: u32,
-}
-
-impl Location {
-    fn new() -> Self {
-        Self{col: 0, line: 0}
-    }
-
-    fn update(&mut self, c: char) {
-        if c == '\n' {
-            self.line += 1;
-            self.col = 0;
-        } else {
-            self.col += 1;
-        }
-    }
 }
