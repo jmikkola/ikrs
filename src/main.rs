@@ -53,6 +53,7 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
         InName, // or keyword
         InType,
         InInteger,
+        InFloat,
         InString,
         Unknown,
     }
@@ -202,10 +203,23 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 if c.is_ascii_digit() {
                     current.push(c);
                     continue;
+                } else if c == '.' {
+                    current.push(c);
+                    state = InFloat;
+                    continue;
                 }
-                // TODO: Handle floats
-                let n = i64::from_str_radix(current.as_str(), 10);
+                let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), last_location));
+            },
+            InFloat => {
+                debug_assert!(!current.is_empty());
+                if c.is_ascii_digit() {
+                    current.push(c);
+                    continue;
+                }
+                // TODO: Handle exponents
+                let n = current.parse();
+                tokens.push((Token::FloatLiteral(n.unwrap()), last_location));
             },
             InString => {
                 debug_assert!(!current.is_empty());
@@ -329,8 +343,12 @@ fn tokenize(text: String) -> io::Result<Vec<(Token, Location)>> {
                 tokens.push((Token::TypeName(current), last_location));
             },
             InInteger => {
-                let n = i64::from_str_radix(current.as_str(), 10);
+                let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), last_location));
+            },
+            InFloat => {
+                let n = current.parse();
+                tokens.push((Token::FloatLiteral(n.unwrap()), last_location));
             },
             InString => {
                 // Unclosed string
@@ -403,6 +421,7 @@ enum Token {
     TypeName(String),
 
     IntLiteral(i64),
+    FloatLiteral(f64),
     StringLiteral(String),
 
     // Idea: These could contain start/end locations (or just end locations?)
