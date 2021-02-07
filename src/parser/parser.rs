@@ -15,6 +15,14 @@ where I: iter::Iterator<Item=&'a (Token, Location)> {
     parse_unary(cursor, syntax)
 }
 
+// TODO: Add a layer above parse_unary for handling function calls, array access, and field access
+// e.g. foo[i](x)[j](y).c, or (bar).baz
+// This might involve splitting parse_unary so that e.g. !foo(x) parses as (!
+// (foo x)) rather than ((! foo) x).
+// - Bottom: paren, literal, name
+// - Next level: array access, field access, function call
+// - Top level: unary operators
+
 fn parse_unary<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
 where I: iter::Iterator<Item=&'a (Token, Location)> {
     match cursor.next() {
