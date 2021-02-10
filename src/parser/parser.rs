@@ -10,9 +10,115 @@ pub fn parse(tokens: Vec<(Token, Location)>) -> Syntax {
     result
 }
 
+// TODO: Handle the operators ^ & | ** << >>
+
+// Operators at this level of precedence: ||
 fn parse_expression<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
 where I: iter::Iterator<Item=&'a (Token, Location)> {
-    parse_unary(cursor, syntax)
+    let mut result = parse_precedence_1(cursor, syntax);
+    while is_next(Token::DoubleOr, cursor) {
+        cursor.next();
+        let right = parse_precedence_1(cursor, syntax);
+        let expr = Expression::BinaryOperator(BinaryOp::BoolOr, result, right);
+        result = syntax.add_expression(expr);
+    }
+    result
+}
+
+// Operators at this level of precedence: &&
+fn parse_precedence_1<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let mut result = parse_precedence_2(cursor, syntax);
+    while is_next(Token::DoubleAnd, cursor) {
+        cursor.next();
+        let right = parse_precedence_2(cursor, syntax);
+        let expr = Expression::BinaryOperator(BinaryOp::BoolAnd, result, right);
+        result = syntax.add_expression(expr);
+    }
+    result
+}
+
+// Operators at this level of precedence: ==, !=
+fn parse_precedence_2<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let mut result = parse_precedence_3(cursor, syntax);
+    while let Some((token, _)) = cursor.peek() {
+        let op = match *token {
+            Token::DoubleEquals => BinaryOp::Equal,
+            Token::NotEquals => BinaryOp::NotEqual,
+            _ => {
+                break;
+            },
+        };
+        cursor.next();
+        let right = parse_precedence_3(cursor, syntax);
+        let expr = Expression::BinaryOperator(op, result, right);
+        result = syntax.add_expression(expr);
+    }
+    result
+}
+
+// Operators at this level of precedence: <, <=, >, >=
+fn parse_precedence_3<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let mut result = parse_precedence_4(cursor, syntax);
+    while let Some((token, _)) = cursor.peek() {
+        let op = match *token {
+            Token::Less => BinaryOp::Less,
+            Token::LessEquals => BinaryOp::LessEqual,
+            Token::Greater => BinaryOp::Greater,
+            Token::GreaterEquals => BinaryOp::GreaterEqual,
+            _ => {
+                break;
+            },
+        };
+        cursor.next();
+        let right = parse_precedence_4(cursor, syntax);
+        let expr = Expression::BinaryOperator(op, result, right);
+        result = syntax.add_expression(expr);
+    }
+    result
+}
+
+// Operators at this level of precedence: +, -
+fn parse_precedence_4<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let mut result = parse_precedence_5(cursor, syntax);
+    while let Some((token, _)) = cursor.peek() {
+        let op = match *token {
+            Token::Plus => BinaryOp::Plus,
+            Token::Minus => BinaryOp::Minus,
+            _ => {
+                break;
+            },
+        };
+        cursor.next();
+        let right = parse_precedence_5(cursor, syntax);
+        let expr = Expression::BinaryOperator(op, result, right);
+        result = syntax.add_expression(expr);
+    }
+    result
+}
+
+// Operators at this level of precedence: *, /, %
+fn parse_precedence_5<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let mut result = parse_unary(cursor, syntax);
+    while let Some((token, _)) = cursor.peek() {
+        let op = match *token {
+            Token::Star => BinaryOp::Times,
+            Token::Slash => BinaryOp::Divide,
+            Token::Percent => BinaryOp::Mod,
+            _ => {
+                break;
+            },
+        };
+        cursor.next();
+        let right = parse_unary(cursor, syntax);
+        let expr = Expression::BinaryOperator(op, result, right);
+        result = syntax.add_expression(expr);
+    }
+    result
 }
 
 // Unary operators and the value they apply to
@@ -327,5 +433,30 @@ mod test {
         let foo = s.add_expression(var("foo"));
         let eref = s.add_expression(Expression::FieldAccess(foo, "bar".to_string()));
         assert_parses_expr(&s, eref, "foo.bar");
+    }
+
+    #[test]
+    fn test_binary_ops() {
+        let mut s = Syntax::new();
+        let ten = s.add_expression(l_int(10));
+        let three = s.add_expression(l_int(3));
+        let two = s.add_expression(l_int(2));
+        let ten_minus_three = s.add_expression(
+            Expression::BinaryOperator(BinaryOp::Minus, ten, three));
+        let eref = s.add_expression(
+            Expression::BinaryOperator(BinaryOp::Minus, ten_minus_three, two));
+        assert_parses_expr(&s, eref, "10 - 3 - 2");
+        assert_parses_expr(&s, eref, "10-3-2");
+    }
+
+    fn test_mixing_binary_and_unary() {
+        let mut s = Syntax::new();
+        let ten = s.add_expression(l_int(10));
+        let five = s.add_expression(l_int(5));
+        let minus_five = s.add_expression(Expression::UnaryOperator(UnaryOp::Negate, five));
+        let eref = s.add_expression(
+            Expression::BinaryOperator(BinaryOp::Minus, ten, minus_five));
+        assert_parses_expr(&s, eref, "10 - -5");
+        assert_parses_expr(&s, eref, "10--5");
     }
 }
