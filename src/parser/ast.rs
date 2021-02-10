@@ -45,9 +45,9 @@ impl Syntax {
                 self.expression_equals(*e1, other, *e2) &&
                     self.exprs_equal(a1, other, a2)
             },
-            (FieldAccess(a1, b1), FieldAccess(a2, b2)) => {
+            (FieldAccess(a1, f1), FieldAccess(a2, f2)) => {
                 self.expression_equals(*a1, other, *a2) &&
-                    self.expression_equals(*b1, other, *b2)
+                    f1 == f2
             },
             (OffsetAccess(a1, b1), OffsetAccess(a2, b2)) => {
                 self.expression_equals(*a1, other, *a2) &&
@@ -110,7 +110,7 @@ pub enum Expression {
     UnaryOperator(UnaryOp, ExpressionRef),
     BinaryOperator(BinaryOp, ExpressionRef, ExpressionRef),
     FunctionCall(ExpressionRef, Vec<ExpressionRef>),
-    FieldAccess(ExpressionRef, ExpressionRef), // like 'foo.bar'
+    FieldAccess(ExpressionRef, String), // like 'foo.bar'
     OffsetAccess(ExpressionRef, ExpressionRef), // like 'foo[bar]'
     Paren(ExpressionRef),
 
