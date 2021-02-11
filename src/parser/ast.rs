@@ -19,6 +19,7 @@ pub struct ExpressionRef(usize);
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TypeRef(usize);
 
+#[cfg(test)]
 pub fn inspect<T>(value: T, syntax: &Syntax) -> Result<String, fmt::Error>
 where T: Inspect {
     let mut result = String::new();
@@ -27,22 +28,26 @@ where T: Inspect {
 }
 
 // Inspection trait for debugging the parser
+#[cfg(test)]
 pub trait Inspect {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result;
 }
 
+#[cfg(test)]
 impl Inspect for ExpressionRef {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         s.get_expression(*self).inspect(f, s)
     }
 }
 
+#[cfg(test)]
 impl Inspect for StatementRef {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         s.get_statement(*self).inspect(f, s)
     }
 }
 
+#[cfg(test)]
 impl Inspect for TypeRef {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         s.get_type(*self).inspect(f, s)
@@ -134,6 +139,7 @@ pub enum Declaration {
     FunctionDecl(Box<FunctionDecl>),
 }
 
+#[cfg(test)]
 impl Inspect for Declaration {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Declaration::*;
@@ -168,6 +174,7 @@ pub enum Statement {
     MatchStmt(Box<MatchStatement>),
 }
 
+#[cfg(test)]
 impl Inspect for Statement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Statement::*;
@@ -226,6 +233,7 @@ pub enum Expression {
 }
 
 
+#[cfg(test)]
 impl Inspect for Expression {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Expression::*;
@@ -290,6 +298,7 @@ pub enum Type {
     FnType(Vec<TypeRef>, TypeRef),
 }
 
+#[cfg(test)]
 impl Inspect for Type {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Type::*;
@@ -325,6 +334,7 @@ pub struct StructExpression {
     expressions: Vec<ExpressionRef>,
 }
 
+#[cfg(test)]
 impl Inspect for StructExpression {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         Ok(()) // TODO
@@ -338,6 +348,7 @@ pub enum TypeDefinition {
     Enum(EnumType),
 }
 
+#[cfg(test)]
 impl Inspect for TypeDefinition {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -351,6 +362,7 @@ pub struct StructType {
     field_types: Vec<TypeRef>, // Can only refer to types, can't define new ones
 }
 
+#[cfg(test)]
 impl Inspect for StructType {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -363,6 +375,7 @@ pub struct EnumType {
     variants: Vec<EnumVariant>,
 }
 
+#[cfg(test)]
 impl Inspect for EnumType {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -376,6 +389,7 @@ pub struct EnumVariant {
     content: StructType,
 }
 
+#[cfg(test)]
 impl Inspect for EnumVariant {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -389,6 +403,7 @@ pub struct Lambda {
     body: ExpressionRef,
 }
 
+#[cfg(test)]
 impl Inspect for Lambda {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -403,6 +418,7 @@ pub struct IfStatement {
     ebody: Option<StatementRef>,
 }
 
+#[cfg(test)]
 impl Inspect for IfStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -416,6 +432,7 @@ pub struct WhileStatement {
     body: StatementRef,
 }
 
+#[cfg(test)]
 impl Inspect for WhileStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -430,6 +447,7 @@ pub struct ForStatement {
     body: StatementRef,
 }
 
+#[cfg(test)]
 impl Inspect for ForStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -443,6 +461,7 @@ pub struct MatchStatement {
     matchers: Vec<Matcher>,
 }
 
+#[cfg(test)]
 impl Inspect for MatchStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -456,6 +475,7 @@ pub struct Matcher {
     body: StatementRef,
 }
 
+#[cfg(test)]
 impl Inspect for Matcher {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -472,6 +492,7 @@ pub enum Pattern {
     Structure(Box<StructPattern>, Vec<Pattern>),
 }
 
+#[cfg(test)]
 impl Inspect for Pattern {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -485,6 +506,7 @@ pub struct StructPattern {
     patterns: Vec<Pattern>,
 }
 
+#[cfg(test)]
 impl Inspect for StructPattern {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -500,6 +522,7 @@ pub struct FunctionDecl {
     body: StatementRef,
 }
 
+#[cfg(test)]
 impl Inspect for FunctionDecl {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         // TODO
@@ -514,6 +537,7 @@ pub enum Literal {
     String(String),
 }
 
+#[cfg(test)]
 impl Inspect for Literal {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Literal::*;
@@ -532,6 +556,7 @@ pub enum UnaryOp {
     BitInvert,
 }
 
+#[cfg(test)]
 impl Inspect for UnaryOp {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use UnaryOp::*;
@@ -568,6 +593,7 @@ pub enum BinaryOp {
     // TODO: left and right shift
 }
 
+#[cfg(test)]
 impl Inspect for BinaryOp {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use BinaryOp::*;
