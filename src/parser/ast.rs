@@ -1,6 +1,4 @@
-pub type StatementRef = usize;
-pub type ExpressionRef = usize;
-pub type TypeRef = usize;
+use std::fmt;
 
 // Syntax contains the results of parsing one file
 #[derive(Debug)]
@@ -9,6 +7,46 @@ pub struct Syntax {
     pub statements: Vec<Statement>,
     pub expressions: Vec<Expression>,
     pub types: Vec<Type>,
+}
+
+// Index types
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StatementRef(usize);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ExpressionRef(usize);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TypeRef(usize);
+
+pub fn inspect<T>(value: T, syntax: &Syntax) -> Result<String, fmt::Error>
+where T: Inspect {
+    let mut result = String::new();
+    value.inspect(&mut result, syntax)?;
+    Ok(result)
+}
+
+// Inspection trait for debugging the parser
+pub trait Inspect {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result;
+}
+
+impl Inspect for ExpressionRef {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        s.get_expression(*self).inspect(f, s)
+    }
+}
+
+impl Inspect for StatementRef {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        s.get_statement(*self).inspect(f, s)
+    }
+}
+
+impl Inspect for TypeRef {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        s.get_type(*self).inspect(f, s)
+    }
 }
 
 impl Syntax {
@@ -21,13 +59,25 @@ impl Syntax {
         }
     }
 
-    pub fn add_expression(&mut self, expr: Expression) -> ExpressionRef {
-        let eref = self.expressions.len() as ExpressionRef;
-        self.expressions.push(expr);
-        eref
+    pub fn get_expression(&self, ExpressionRef(r): ExpressionRef) -> &Expression {
+        &self.expressions[r]
     }
 
-    pub fn expression_equals(&self, eref: ExpressionRef, other: &Self, oref: ExpressionRef) -> bool {
+    pub fn get_statement(&self, StatementRef(r): StatementRef) -> &Statement {
+        &self.statements[r]
+    }
+
+    pub fn get_type(&self, TypeRef(r): TypeRef) -> &Type {
+        &self.types[r]
+    }
+
+    pub fn add_expression(&mut self, expr: Expression) -> ExpressionRef {
+        let eref = self.expressions.len();
+        self.expressions.push(expr);
+        ExpressionRef(eref)
+    }
+
+    pub fn expression_equals(&self, ExpressionRef(eref): ExpressionRef, other: &Self, ExpressionRef(oref): ExpressionRef) -> bool {
         use Expression::*;
         match (&self.expressions[eref], &other.expressions[oref]) {
             (ExpressionParseError, ExpressionParseError) => true,
@@ -84,6 +134,23 @@ pub enum Declaration {
     FunctionDecl(Box<FunctionDecl>),
 }
 
+impl Inspect for Declaration {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use Declaration::*;
+        match self {
+            DeclarationParseError => write!(f, "(decl-error)"),
+            PackageDecl(name) => write!(f, "(package {})", name),
+            ImportDecl(name) => write!(f, "(import {})", name),
+            TypeDecl(name, tdef) => {
+                write!(f, "(type {} ", name)?;
+                tdef.inspect(f, s)?;
+                write!(f, ")")
+            },
+            FunctionDecl(fdecl) => fdecl.inspect(f, s),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Statement {
     StatementParseError,
@@ -99,6 +166,46 @@ pub enum Statement {
     WhileStmt(Box<WhileStatement>),
     ForStmt(Box<ForStatement>),
     MatchStmt(Box<MatchStatement>),
+}
+
+impl Inspect for Statement {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use Statement::*;
+        match self {
+            StatementParseError =>
+                write!(f, "(stmt-error)"),
+            Return =>
+                write!(f, "(return)"),
+            ReturnExpr(expr) => {
+                write!(f, "(return ")?;
+                expr.inspect(f, s)?;
+                write!(f, ")")
+            },
+            ExprStmt(expr) => expr.inspect(f, s),
+            LetStmt(var, expr) => {
+                write!(f, "(let {} ",  var)?;
+                expr.inspect(f, s)?;
+                write!(f, ")")
+            },
+            AssignStmt(var, expr) => {
+                write!(f, "(assign {} ",  var)?;
+                expr.inspect(f, s)?;
+                write!(f, ")")
+            },
+            Block(stmts) => {
+                write!(f, "(do")?;
+                for stmt in stmts {
+                    write!(f, " ")?;
+                    stmt.inspect(f, s)?;
+                }
+                write!(f, ")")
+            },
+            IfStmt(ifstmt) => ifstmt.inspect(f, s),
+            WhileStmt(whilestmt) => whilestmt.inspect(f, s),
+            ForStmt(forstmt) => forstmt.inspect(f, s),
+            MatchStmt(matchstmt) => matchstmt.inspect(f, s),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -118,6 +225,62 @@ pub enum Expression {
     Lambda(Box<Lambda>),
 }
 
+
+impl Inspect for Expression {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use Expression::*;
+        match &*self {
+            ExpressionParseError => write!(f, "expr-error"),
+            Literal(l) => l.inspect(f, s),
+            Variable(ref s) => write!(f, "{}", s),
+            UnaryOperator(uop, expr) => {
+                write!(f, "(unary ")?;
+                uop.inspect(f, s)?;
+                write!(f, " ")?;
+                expr.inspect(f, s)?;
+                write!(f, ")")
+            },
+            BinaryOperator(bop, left, right) => {
+                write!(f, "(binary ")?;
+                bop.inspect(f, s)?;
+                write!(f, " ")?;
+                left.inspect(f, s)?;
+                write!(f, " ")?;
+                right.inspect(f, s)?;
+                write!(f, ")")
+            },
+            FunctionCall(fexpr, ref args) => {
+                write!(f, "(call ")?;
+                fexpr.inspect(f, s)?;
+                for arg in args {
+                    write!(f, " ")?;
+                    arg.inspect(f, s)?;
+                }
+                write!(f, ")")
+            },
+            FieldAccess(expr, ref field) => {
+                write!(f, "(access ")?;
+                expr.inspect(f, s)?;
+                write!(f, " {})", field)
+            },
+            OffsetAccess(expr, offset) => {
+                write!(f, "(offset ")?;
+                expr.inspect(f, s)?;
+                write!(f, " ")?;
+                offset.inspect(f, s)?;
+                write!(f, ")")
+            },
+            Paren(expr) => {
+                write!(f, "(paren ")?;
+                expr.inspect(f, s)?;
+                write!(f, ")")
+            },
+            StructCreate(ref structexpr) => structexpr.inspect(f, s),
+            Lambda(ref lambda) => lambda.inspect(f, s),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Type {
     TypeParseError,
@@ -127,11 +290,45 @@ pub enum Type {
     FnType(Vec<TypeRef>, TypeRef),
 }
 
+impl Inspect for Type {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use Type::*;
+        match self {
+            TypeParseError => write!(f, "type-err"),
+            TypeName(name) => write!(f, "{}", name),
+            Generic(name, refs) => {
+                write!(f, "(generic {}", name)?;
+                for t in refs {
+                    write!(f, " ")?;
+                    t.inspect(f, s)?;
+                }
+                write!(f, ")")
+            },
+            FnType(arg_types, ret_type) => {
+                write!(f, "(function (")?;
+                for t in arg_types {
+                    write!(f, " ")?;
+                    t.inspect(f, s)?;
+                }
+                write!(f, ") ")?;
+                ret_type.inspect(f, s)?;
+                write!(f, ")")
+            },
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct StructExpression {
     struct_name: String,
     field_names: Vec<String>,
     expressions: Vec<ExpressionRef>,
+}
+
+impl Inspect for StructExpression {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        Ok(()) // TODO
+    }
 }
 
 #[derive(Debug)]
@@ -141,15 +338,36 @@ pub enum TypeDefinition {
     Enum(EnumType),
 }
 
+impl Inspect for TypeDefinition {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct StructType {
     field_names: Vec<String>,
     field_types: Vec<TypeRef>, // Can only refer to types, can't define new ones
 }
 
+impl Inspect for StructType {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct EnumType {
     variants: Vec<EnumVariant>,
+}
+
+impl Inspect for EnumType {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -158,10 +376,24 @@ pub struct EnumVariant {
     content: StructType,
 }
 
+impl Inspect for EnumVariant {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Lambda {
     arg_names: Vec<String>,
     body: ExpressionRef,
+}
+
+impl Inspect for Lambda {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -171,10 +403,24 @@ pub struct IfStatement {
     ebody: Option<StatementRef>,
 }
 
+impl Inspect for IfStatement {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct WhileStatement {
     test: ExpressionRef,
     body: StatementRef,
+}
+
+impl Inspect for WhileStatement {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -184,16 +430,37 @@ pub struct ForStatement {
     body: StatementRef,
 }
 
+impl Inspect for ForStatement {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct MatchStatement {
     matched: ExpressionRef,
     matchers: Vec<Matcher>,
 }
 
+impl Inspect for MatchStatement {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct Matcher {
     pattern: Pattern,
     body: StatementRef,
+}
+
+impl Inspect for Matcher {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -205,10 +472,24 @@ pub enum Pattern {
     Structure(Box<StructPattern>, Vec<Pattern>),
 }
 
+impl Inspect for Pattern {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct StructPattern {
     names: Vec<String>,
     patterns: Vec<Pattern>,
+}
+
+impl Inspect for StructPattern {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -219,6 +500,13 @@ pub struct FunctionDecl {
     body: StatementRef,
 }
 
+impl Inspect for FunctionDecl {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        // TODO
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Literal {
     Integer(i64),
@@ -226,11 +514,33 @@ pub enum Literal {
     String(String),
 }
 
+impl Inspect for Literal {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use Literal::*;
+        match self {
+            Integer(n) => write!(f, "{}", n),
+            Float(n) => write!(f, "{}", n),
+            String(st) => write!(f, "{}", st),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnaryOp {
     BoolNot,
     Negate,
     BitInvert,
+}
+
+impl Inspect for UnaryOp {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use UnaryOp::*;
+        match self{
+            BoolNot => write!(f, "!"),
+            Negate => write!(f, "-"),
+            BitInvert => write!(f, "~"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -256,4 +566,28 @@ pub enum BinaryOp {
     GreaterEqual,
 
     // TODO: left and right shift
+}
+
+impl Inspect for BinaryOp {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        use BinaryOp::*;
+        match self {
+            Plus => write!(f, "+"),
+            Minus => write!(f, "-"),
+            Times => write!(f, "*"),
+            Divide => write!(f, "/"),
+            Mod => write!(f, "%"),
+            Power => write!(f, "^"),
+            BitAnd => write!(f, "&"),
+            BitOr => write!(f, "|"),
+            BoolAnd => write!(f, "&&"),
+            BoolOr => write!(f, "||"),
+            Equal => write!(f, "=="),
+            NotEqual => write!(f, "!="),
+            Less => write!(f, "<"),
+            LessEqual => write!(f, "<="),
+            Greater => write!(f, ">"),
+            GreaterEqual => write!(f, ">="),
+        }
+    }
 }

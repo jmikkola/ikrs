@@ -300,6 +300,15 @@ mod test {
         assert!(syntax.expression_equals(eref, &result_s, result_ref), message);
     }
 
+    fn assert_inspects(input: &str, expected: &str) {
+        let mut s = Syntax::new();
+        let eref = parse_expression(
+            &mut tokenize(input).iter().peekable(),
+            &mut s);
+        let inspected = inspect(eref, &s).unwrap();
+        assert_eq!(expected, inspected.as_str());
+    }
+
     fn l_int(i: i64) -> Expression {
         Expression::Literal(Literal::Integer(i))
     }
@@ -449,6 +458,7 @@ mod test {
         assert_parses_expr(&s, eref, "10-3-2");
     }
 
+    #[test]
     fn test_mixing_binary_and_unary() {
         let mut s = Syntax::new();
         let ten = s.add_expression(l_int(10));
@@ -458,5 +468,7 @@ mod test {
             Expression::BinaryOperator(BinaryOp::Minus, ten, minus_five));
         assert_parses_expr(&s, eref, "10 - -5");
         assert_parses_expr(&s, eref, "10--5");
+
+        assert_inspects("10 - -5", "(binary - 10 (unary - 5))");
     }
 }
