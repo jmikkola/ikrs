@@ -26,8 +26,7 @@ where I: iter::Iterator<Item=&'a (Token, Location)> {
         },
         Token::KeywordLet => {
             cursor.next();
-            // TODO: Let statement
-            syntax.add_statement(Statement::StatementParseError)
+            parse_let(cursor, syntax)
         },
         Token::KeywordIf => {
             cursor.next();
@@ -83,6 +82,24 @@ where I: iter::Iterator<Item=&'a (Token, Location)> {
         let expr = parse_expression(cursor, syntax);
         syntax.add_statement(Statement::ReturnExpr(expr))
     }
+}
+
+fn parse_let<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> StatementRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let name = match cursor.next() {
+        Some((Token::ValueName(n), _)) => n.clone(),
+        _ => {
+            return syntax.add_statement(Statement::StatementParseError);
+        },
+    };
+
+    if !require_next(Token::Equals, cursor) {
+        return syntax.add_statement(Statement::StatementParseError);
+    }
+
+    let expr = parse_expression(cursor, syntax);
+    let stmt = Statement::LetStmt(name, expr);
+    syntax.add_statement(stmt)
 }
 
 // TODO: Handle the operators ^ & | ** << >>
@@ -473,5 +490,10 @@ mod test {
     fn test_return_with_expression() {
         assert_parses_stmt("return 123\n", "(return 123)");
         assert_parses_stmt("return 1 + 2\n", "(return (binary + 1 2))");
+    }
+
+    #[test]
+    fn test_let_statement() {
+        assert_parses_stmt("let a = 1 + 2\n", "(let a (binary + 1 2))");
     }
 }
