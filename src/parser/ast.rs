@@ -330,14 +330,18 @@ impl Inspect for Type {
 #[derive(Debug, PartialEq)]
 pub struct StructExpression {
     struct_name: String,
-    field_names: Vec<String>,
-    expressions: Vec<ExpressionRef>,
+    fields: Vec<(String, ExpressionRef)>,
 }
 
 #[cfg(test)]
 impl Inspect for StructExpression {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        Ok(()) // TODO
+        write!(f, "(make-struct {}", self.struct_name)?;
+        for (field_name, expr) in self.fields.iter() {
+            write!(f, " {} ", field_name)?;
+            expr.inspect(f, s)?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -351,21 +355,43 @@ pub enum TypeDefinition {
 #[cfg(test)]
 impl Inspect for TypeDefinition {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        use TypeDefinition::*;
+        match self {
+            Alias(tref) => {
+                write!(f, "alias ")?;
+                tref.inspect(f, s)
+            },
+            Structure(struct_type) => {
+                struct_type.inspect(f, s)
+            },
+            Enum(enum_type) => {
+                enum_type.inspect(f, s)
+            },
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct StructType {
-    field_names: Vec<String>,
-    field_types: Vec<TypeRef>, // Can only refer to types, can't define new ones
+    fields: Vec<(String, TypeRef)>,
 }
 
 #[cfg(test)]
 impl Inspect for StructType {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
+        write!(f, "(struct")?;
+        self.write_inner(f, s)?;
+        write!(f, ")")
+    }
+}
+
+#[cfg(test)]
+impl StructType {
+    fn write_inner(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        for (name, t) in self.fields.iter() {
+            write!(f, " {} ", name)?;
+            t.inspect(f, s)?;
+        }
         Ok(())
     }
 }
@@ -378,8 +404,12 @@ pub struct EnumType {
 #[cfg(test)]
 impl Inspect for EnumType {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(enum")?;
+        for variant in self.variants.iter() {
+            write!(f, " ")?;
+            variant.inspect(f, s)?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -392,8 +422,9 @@ pub struct EnumVariant {
 #[cfg(test)]
 impl Inspect for EnumVariant {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(variant {}", self.name)?;
+        self.content.write_inner(f, s)?;
+        write!(f, ")")
     }
 }
 
@@ -406,8 +437,18 @@ pub struct Lambda {
 #[cfg(test)]
 impl Inspect for Lambda {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(lambda (")?;
+        let mut wrote_first = false;
+        for name in self.arg_names.iter() {
+            if wrote_first {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", name)?;
+            wrote_first = true;
+        }
+        write!(f, ") ")?;
+        self.body.inspect(f, s)?;
+        write!(f, ")")
     }
 }
 
@@ -421,8 +462,15 @@ pub struct IfStatement {
 #[cfg(test)]
 impl Inspect for IfStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(if ")?;
+        self.test.inspect(f, s)?;
+        write!(f, " ")?;
+        self.tbody.inspect(f, s)?;
+        if let Some(stmt) = self.ebody {
+            write!(f, " ")?;
+            stmt.inspect(f, s)?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -435,8 +483,11 @@ pub struct WhileStatement {
 #[cfg(test)]
 impl Inspect for WhileStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(while ")?;
+        self.test.inspect(f, s)?;
+        write!(f, " ")?;
+        self.body.inspect(f, s)?;
+        write!(f, ")")
     }
 }
 
@@ -450,8 +501,11 @@ pub struct ForStatement {
 #[cfg(test)]
 impl Inspect for ForStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(for {} in ", self.variable)?;
+        self.iterable.inspect(f, s)?;
+        write!(f, " ")?;
+        self.body.inspect(f, s)?;
+        write!(f, ")")
     }
 }
 
@@ -464,8 +518,12 @@ pub struct MatchStatement {
 #[cfg(test)]
 impl Inspect for MatchStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(match")?;
+        for matcher in self.matchers.iter() {
+            write!(f, " ")?;
+            matcher.inspect(f, s)?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -478,8 +536,11 @@ pub struct Matcher {
 #[cfg(test)]
 impl Inspect for Matcher {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(case ")?;
+        self.pattern.inspect(f, s)?;
+        write!(f, " ")?;
+        self.body.inspect(f, s)?;
+        write!(f, ")")
     }
 }
 
@@ -489,28 +550,43 @@ pub enum Pattern {
     Name(String),
     Named(String, Box<Pattern>),
     Literal(Literal),
-    Structure(Box<StructPattern>, Vec<Pattern>),
+    Structure(Box<StructPattern>),
 }
 
 #[cfg(test)]
 impl Inspect for Pattern {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        use Pattern::*;
+        match self {
+            Underscore => write!(f, "_"),
+            Name(name) => write!(f, "{}", name),
+            Named(name, pattern) => {
+                write!(f, "(@ {} ", name)?;
+                pattern.inspect(f, s)?;
+                write!(f, ")")
+            },
+            Literal(lit) => lit.inspect(f, s),
+            Structure(pat) => pat.inspect(f, s),
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct StructPattern {
-    names: Vec<String>,
-    patterns: Vec<Pattern>,
+    struct_name: String,
+    field_patterns: Vec<(String, Pattern)>,
 }
 
 #[cfg(test)]
 impl Inspect for StructPattern {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(match-struct {}", self.struct_name)?;
+        for (name, pat) in self.field_patterns.iter() {
+            write!(f, " ({} ", name)?;
+            pat.inspect(f, s)?;
+            write!(f, ")")?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -525,8 +601,23 @@ pub struct FunctionDecl {
 #[cfg(test)]
 impl Inspect for FunctionDecl {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        // TODO
-        Ok(())
+        write!(f, "(defn {} (", self.name)?;
+        let mut wrote_first = false;
+        for arg in self.arg_names.iter() {
+            if wrote_first {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", arg)?;
+            wrote_first = true;
+        }
+        write!(f, ") ")?;
+        if let Some(tref) = self.fn_type {
+            write!(f, ":: ")?;
+            tref.inspect(f, s)?;
+            write!(f, " ")?;
+        }
+        self.body.inspect(f, s)?;
+        write!(f, ")")
     }
 }
 
