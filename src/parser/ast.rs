@@ -414,9 +414,9 @@ impl Inspect for Lambda {
 
 #[derive(Debug)]
 pub struct IfStatement {
-    test: ExpressionRef,
-    tbody: StatementRef,
-    ebody: Option<StatementRef>,
+    pub test: ExpressionRef,
+    pub tbody: StatementRef,
+    pub ebody: Option<StatementRef>,
 }
 
 #[cfg(test)]

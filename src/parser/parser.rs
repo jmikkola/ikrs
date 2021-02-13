@@ -10,14 +10,31 @@ pub fn parse(tokens: Vec<(Token, Location)>) -> Syntax {
     result
 }
 
-fn parse_statement<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> StatementRef
+/*
+Ideas:
+
+- enumerate the tokens, allowing errors to contain the token offset
+- add a location and explaination enum to StatementParseError
+*/
+
+fn parse_statement<'a, I>(
+    cursor: &mut iter::Peekable<I>,
+    syntax: &mut Syntax,
+    indent: Option<u32>,
+) -> StatementRef
 where I: iter::Iterator<Item=&'a (Token, Location)> {
-    let token = match cursor.peek() {
+    let (token, location) = match cursor.peek() {
         None => {
             return syntax.add_statement(Statement::StatementParseError);
         },
-        Some((t, _)) => t,
+        Some(tok) => tok,
     };
+
+    if let Some(level) = indent {
+        if location.col != level {
+            return syntax.add_statement(Statement::StatementParseError);
+        }
+    }
 
     let result = match token {
         Token::KeywordReturn => {
@@ -30,8 +47,7 @@ where I: iter::Iterator<Item=&'a (Token, Location)> {
         },
         Token::KeywordIf => {
             cursor.next();
-            // TODO: If statement,
-            syntax.add_statement(Statement::StatementParseError)
+            parse_if(cursor, syntax, location.col)
         },
         Token::KeywordWhile => {
             cursor.next();
@@ -59,11 +75,90 @@ where I: iter::Iterator<Item=&'a (Token, Location)> {
         },
     };
 
-    if require_next(Token::Newline, cursor) {
-        result
-    } else {
-        syntax.add_statement(Statement::StatementParseError)
+    match cursor.next() {
+        // A statement can be the last line in a file
+        None | Some((Token::Newline, _)) => result,
+        _ => syntax.add_statement(Statement::StatementParseError),
     }
+}
+
+fn parse_if<'a, I>(
+    cursor: &mut iter::Peekable<I>,
+    syntax: &mut Syntax,
+    indent: u32,
+) -> StatementRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let test = parse_expression(cursor, syntax);
+    let tbody = parse_block(cursor, syntax, indent);
+
+    // TODO: Else statement
+
+    let if_statement = IfStatement{test: test, tbody: tbody, ebody: None};
+    let stmt = Statement::IfStmt(Box::new(if_statement));
+    syntax.add_statement(stmt)
+}
+
+// returns the block statement
+fn parse_block<'a, I>(
+    cursor: &mut iter::Peekable<I>,
+    syntax: &mut Syntax,
+    indent: u32,
+) -> StatementRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    if !require_next(Token::Colon, cursor) {
+        return syntax.add_statement(Statement::StatementParseError);
+    }
+
+    if !require_next(Token::Newline, cursor) {
+        return syntax.add_statement(Statement::StatementParseError);
+    }
+
+    let mut statements = vec![];
+    let mut new_indent = None;
+
+    loop {
+        let (token, location) = match cursor.peek() {
+            // The file could end inside a block
+            None => break,
+            Some(tok) => tok,
+        };
+
+        if *token == Token::Newline {
+            // ignore it
+            cursor.next();
+            continue;
+        }
+
+        // Make sure the indent is valid and the block hasn't ended
+        match new_indent {
+            None => {
+                if location.col <= indent {
+                    // The block ended with no statements
+                    break;
+                }
+                new_indent = Some(location.col);
+            },
+            Some(level) => {
+                if location.col > level {
+                    // Invalid indentation -- parse the statement anyway to
+                    // leave the stream of tokens sensible
+                    parse_statement(cursor, syntax, None);
+                    let err_stmt = syntax.add_statement(Statement::StatementParseError);
+                    statements.push(err_stmt);
+                    break;
+                } else if location.col <= level {
+                    // The block has ended
+                    break;
+                }
+            },
+        }
+
+        let stmt = parse_statement(cursor, syntax, new_indent);
+        statements.push(stmt);
+    }
+
+    let stmt = Statement::Block(statements);
+    syntax.add_statement(stmt)
 }
 
 fn parse_return<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> StatementRef
@@ -386,7 +481,8 @@ mod test {
         let mut s = Syntax::new();
         let sref = parse_statement(
             &mut tokenize(input).iter().peekable(),
-            &mut s);
+            &mut s,
+            None);
         let inspected = inspect(sref, &s).unwrap();
         assert_eq!(expected, inspected.as_str());
     }
@@ -488,6 +584,7 @@ mod test {
 
     #[test]
     fn test_return_with_expression() {
+        assert_parses_stmt("return 123", "(return 123)");
         assert_parses_stmt("return 123\n", "(return 123)");
         assert_parses_stmt("return 1 + 2\n", "(return (binary + 1 2))");
     }
@@ -495,5 +592,17 @@ mod test {
     #[test]
     fn test_let_statement() {
         assert_parses_stmt("let a = 1 + 2\n", "(let a (binary + 1 2))");
+    }
+
+    #[test]
+    fn test_if_without_else() {
+        let stmt = "if 1:\n  return\n";
+        assert_parses_stmt(stmt, "(if 1 (do (return)))");
+    }
+
+    #[test]
+    fn test_if_with_two_statements() {
+        let stmt = "if 1:\n  return\n  return 123\n";
+        assert_parses_stmt(stmt, "(if 1 (do (return) (return 123)))");
     }
 }
