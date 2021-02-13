@@ -351,6 +351,7 @@ fn name_token(name: String) -> Token {
         "let"      => Token::KeywordLet,
         "match"    => Token::KeywordMatch,
         "package"  => Token::KeywordPackage,
+        "return"   => Token::KeywordReturn,
         "struct"   => Token::KeywordStruct,
         "type"     => Token::KeywordType,
         "where"    => Token::KeywordWhere,

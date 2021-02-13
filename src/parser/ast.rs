@@ -81,6 +81,12 @@ impl Syntax {
         self.expressions.push(expr);
         ExpressionRef(eref)
     }
+
+    pub fn add_statement(&mut self, stmt: Statement) -> StatementRef {
+        let sref = self.statements.len();
+        self.statements.push(stmt);
+        StatementRef(sref)
+    }
 }
 
 #[derive(Debug)]

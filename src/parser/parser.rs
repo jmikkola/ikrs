@@ -10,6 +10,81 @@ pub fn parse(tokens: Vec<(Token, Location)>) -> Syntax {
     result
 }
 
+fn parse_statement<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> StatementRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let token = match cursor.peek() {
+        None => {
+            return syntax.add_statement(Statement::StatementParseError);
+        },
+        Some((t, _)) => t,
+    };
+
+    let result = match token {
+        Token::KeywordReturn => {
+            cursor.next();
+            parse_return(cursor, syntax)
+        },
+        Token::KeywordLet => {
+            cursor.next();
+            // TODO: Let statement
+            syntax.add_statement(Statement::StatementParseError)
+        },
+        Token::KeywordIf => {
+            cursor.next();
+            // TODO: If statement,
+            syntax.add_statement(Statement::StatementParseError)
+        },
+        Token::KeywordWhile => {
+            cursor.next();
+            // TODO: While statement
+            syntax.add_statement(Statement::StatementParseError)
+        },
+        Token::KeywordFor => {
+            cursor.next();
+            // TODO: For statement
+            syntax.add_statement(Statement::StatementParseError)
+        },
+        Token::KeywordMatch => {
+            cursor.next();
+            // TODO: Match statement
+            syntax.add_statement(Statement::StatementParseError)
+        },
+        Token::ValueName(name) => {
+            // TODO: Parse assignment or expression
+            syntax.add_statement(Statement::StatementParseError)
+        },
+        _ => {
+            let expr = parse_expression(cursor, syntax);
+            let stmt = Statement::ExprStmt(expr);
+            syntax.add_statement(stmt)
+        },
+    };
+
+    if require_next(Token::Newline, cursor) {
+        result
+    } else {
+        syntax.add_statement(Statement::StatementParseError)
+    }
+}
+
+fn parse_return<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> StatementRef
+where I: iter::Iterator<Item=&'a (Token, Location)> {
+    let token = match cursor.peek() {
+        None => {
+            return syntax.add_statement(Statement::StatementParseError);
+        },
+        Some((t, _)) => t,
+    };
+
+    if *token == Token::Newline {
+        // The caller eats this newline
+        syntax.add_statement(Statement::Return)
+    } else {
+        let expr = parse_expression(cursor, syntax);
+        syntax.add_statement(Statement::ReturnExpr(expr))
+    }
+}
+
 // TODO: Handle the operators ^ & | ** << >>
 
 // Operators at this level of precedence: ||
@@ -290,6 +365,15 @@ mod test {
         assert_eq!(expected, inspected.as_str());
     }
 
+    fn assert_parses_stmt(input: &str, expected: &str) {
+        let mut s = Syntax::new();
+        let sref = parse_statement(
+            &mut tokenize(input).iter().peekable(),
+            &mut s);
+        let inspected = inspect(sref, &s).unwrap();
+        assert_eq!(expected, inspected.as_str());
+    }
+
     #[test]
     fn test_empty() {
         let result = parse(vec![]);
@@ -378,5 +462,16 @@ mod test {
         assert_parses_expr("10 - -5", expected);
         assert_parses_expr("10-- 5", expected);
         assert_parses_expr("10--5", expected);
+    }
+
+    #[test]
+    fn test_plain_return() {
+        assert_parses_stmt("return\n", "(return)");
+    }
+
+    #[test]
+    fn test_return_with_expression() {
+        assert_parses_stmt("return 123\n", "(return 123)");
+        assert_parses_stmt("return 1 + 2\n", "(return (binary + 1 2))");
     }
 }
