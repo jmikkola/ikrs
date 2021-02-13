@@ -81,52 +81,6 @@ impl Syntax {
         self.expressions.push(expr);
         ExpressionRef(eref)
     }
-
-    pub fn expression_equals(&self, ExpressionRef(eref): ExpressionRef, other: &Self, ExpressionRef(oref): ExpressionRef) -> bool {
-        use Expression::*;
-        match (&self.expressions[eref], &other.expressions[oref]) {
-            (ExpressionParseError, ExpressionParseError) => true,
-            (Literal(l1), Literal(l2)) => l1 == l2,
-            (Variable(s1), Variable(s2)) => s1 == s2,
-            (UnaryOperator(o1, e1), UnaryOperator(o2, e2)) => {
-                o1 == o2 && self.expression_equals(*e1, other, *e2)
-            },
-            (BinaryOperator(o1, l1, r1), BinaryOperator(o2, l2, r2)) => {
-                o1 == o2 &&
-                    self.expression_equals(*l1, other, *l2) &&
-                    self.expression_equals(*r1, other, *r2)
-            },
-            (FunctionCall(e1, a1), FunctionCall(e2, a2)) => {
-                self.expression_equals(*e1, other, *e2) &&
-                    self.exprs_equal(a1, other, a2)
-            },
-            (FieldAccess(a1, f1), FieldAccess(a2, f2)) => {
-                self.expression_equals(*a1, other, *a2) &&
-                    f1 == f2
-            },
-            (OffsetAccess(a1, b1), OffsetAccess(a2, b2)) => {
-                self.expression_equals(*a1, other, *a2) &&
-                    self.expression_equals(*b1, other, *b2)
-            },
-            (Paren(a1), Paren(a2)) => self.expression_equals(*a1, other, *a2),
-            (StructCreate(se1), StructCreate(se2)) => {
-                panic!("TODO");
-            },
-            (Lambda(l1), Lambda(l2)) => {
-                panic!("TODO");
-            },
-
-            _ => false,
-        }
-    }
-
-    fn exprs_equal(&self, erefs: &Vec<ExpressionRef>, other: &Self, orefs: &Vec<ExpressionRef>) -> bool {
-        if erefs.len() != orefs.len() {
-            return false
-        }
-        erefs.iter().zip(orefs)
-            .all(|(e, o)| self.expression_equals(*e, other, *o))
-    }
 }
 
 #[derive(Debug)]

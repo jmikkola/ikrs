@@ -281,40 +281,13 @@ mod test {
     use super::super::tokenize::tokenize;
     use super::*;
 
-    fn get_expression(input: &str) -> (Syntax, ExpressionRef) {
-        let tokens = tokenize(input);
-
-        let mut result = Syntax::new();
-        let mut cursor = tokens.iter().peekable();
-        let expr_ref = parse_expression(&mut cursor, &mut result);
-
-        // assert that the iterator is done
-        assert_eq!(None, cursor.peek());
-
-        (result, expr_ref)
-    }
-
-    fn assert_parses_expr(syntax: &Syntax, eref: ExpressionRef, text: &str) {
-        let (result_s, result_ref) = get_expression(text);
-        let message = format!("expected: {:?}, actual: {:?}", syntax, result_s);
-        assert!(syntax.expression_equals(eref, &result_s, result_ref), message);
-    }
-
-    fn assert_inspects(input: &str, expected: &str) {
+    fn assert_parses_expr(input: &str, expected: &str) {
         let mut s = Syntax::new();
         let eref = parse_expression(
             &mut tokenize(input).iter().peekable(),
             &mut s);
         let inspected = inspect(eref, &s).unwrap();
         assert_eq!(expected, inspected.as_str());
-    }
-
-    fn l_int(i: i64) -> Expression {
-        Expression::Literal(Literal::Integer(i))
-    }
-
-    fn var(name: &str) -> Expression {
-        Expression::Variable(name.to_string())
     }
 
     #[test]
@@ -325,150 +298,85 @@ mod test {
 
     #[test]
     fn test_int() {
-        let mut s = Syntax::new();
-        let eref = s.add_expression(l_int(1234));
-        assert_parses_expr(&s, eref, "1234");
+        assert_parses_expr("1234", "1234");
     }
 
     #[test]
     fn test_variable() {
-        let mut s = Syntax::new();
-        let eref = s.add_expression(var("x"));
-        assert_parses_expr(&s, eref, "x");
+        assert_parses_expr("x", "x");
     }
 
     #[test]
     fn test_unary_bang() {
-        let mut s = Syntax::new();
-        let inner = s.add_expression(l_int(1));
-        let eref = s.add_expression(Expression::UnaryOperator(UnaryOp::BoolNot, inner));
-        assert_parses_expr(&s, eref, "!1");
-        assert_parses_expr(&s, eref, "  !  1  ");
+        assert_parses_expr("!1", "(unary ! 1)");
+        assert_parses_expr(" ! 1 ", "(unary ! 1)");
     }
 
     #[test]
     fn test_multiple_unary_operators() {
-        let mut s = Syntax::new();
-        let mut eref = s.add_expression(l_int(3));
-        use UnaryOp::*;
-        for op in vec![Negate, BitInvert, BoolNot, BoolNot] {
-            let expr = Expression::UnaryOperator(op, eref);
-            eref = s.add_expression(expr);
-        }
-        assert_parses_expr(&s, eref, "!!~-3");
-        assert_parses_expr(&s, eref, " ! ! ~ - 3 ");
+        let expected = "(unary ! (unary ! (unary ~ (unary - 3))))";
+        assert_parses_expr("!!~-3", expected);
+        assert_parses_expr(" ! ! ~ - 3 ", expected);
     }
 
     #[test]
     fn test_parens() {
-        let mut s = Syntax::new();
-        let inner = s.add_expression(l_int(99));
-        let eref = s.add_expression(Expression::Paren(inner));
-        assert_parses_expr(&s, eref, "(99)");
+        assert_parses_expr("(99)", "(paren 99)");
     }
 
     #[test]
     fn test_function_call_no_args() {
-        let mut s = Syntax::new();
-        let foo = s.add_expression(var("foo"));
-        let eref = s.add_expression(Expression::FunctionCall(foo, vec![]));
-        assert_parses_expr(&s, eref, "foo()");
+        assert_parses_expr("foo()", "(call foo)");
     }
 
     #[test]
     fn test_function_call_one_arg() {
-        let mut s = Syntax::new();
-        let foo = s.add_expression(var("foo"));
-        let arg = s.add_expression(l_int(123));
-        let eref = s.add_expression(Expression::FunctionCall(foo, vec![arg]));
-        assert_parses_expr(&s, eref, "foo( 123 )");
+        assert_parses_expr("foo( 123 )", "(call foo 123)");
     }
 
     #[test]
     fn test_function_call_trailing_comma() {
-        let mut s = Syntax::new();
-        let foo = s.add_expression(var("foo"));
-        let arg = s.add_expression(l_int(123));
-        let eref = s.add_expression(Expression::FunctionCall(foo, vec![arg]));
-        assert_parses_expr(&s, eref, "foo( 123, )");
+        assert_parses_expr("foo( 123, )", "(call foo 123)");
     }
 
     #[test]
     fn test_function_call_many_args() {
-        let mut s = Syntax::new();
-        let foo = s.add_expression(var("foo"));
-        let args = vec![
-            s.add_expression(l_int(1)),
-            s.add_expression(l_int(2)),
-            s.add_expression(l_int(3)),
-        ];
-        let eref = s.add_expression(Expression::FunctionCall(foo, args));
-        assert_parses_expr(&s, eref, "foo( 1, 2, 3 )");
+        assert_parses_expr("foo( 1, 2, 3 )", "(call foo 1 2 3)");
     }
 
     #[test]
     fn test_function_in_parens() {
-        let mut s = Syntax::new();
-        let mut foo = s.add_expression(var("foo"));
-        foo = s.add_expression(Expression::Paren(foo));
-        let eref = s.add_expression(Expression::FunctionCall(foo, vec![]));
-        assert_parses_expr(&s, eref, "(foo)()");
+        assert_parses_expr("(foo)()", "(call (paren foo))");
     }
 
     #[test]
     fn test_offset_access() {
-        let mut s = Syntax::new();
-        let foo = s.add_expression(var("foo"));
-        let index = s.add_expression(l_int(123));
-        let eref = s.add_expression(Expression::OffsetAccess(foo, index));
-        assert_parses_expr(&s, eref, "foo[123]");
+        assert_parses_expr("foo[123]", "(offset foo 123)");
     }
 
     #[test]
     fn test_repeated_offset_access() {
-        let mut s = Syntax::new();
-        let mut eref = s.add_expression(var("foo"));
-        let index1 = s.add_expression(l_int(1));
-        eref = s.add_expression(Expression::OffsetAccess(eref, index1));
-        let index2 = s.add_expression(l_int(2));
-        eref = s.add_expression(Expression::OffsetAccess(eref, index2));
-        eref = s.add_expression(Expression::UnaryOperator(UnaryOp::BitInvert, eref));
-        assert_parses_expr(&s, eref, "~foo[1][2]");
+        let expected = "(unary ~ (offset (offset foo 1) 2))";
+        assert_parses_expr("~foo[1][2]", expected);
     }
 
     #[test]
     fn test_field_access() {
-        let mut s = Syntax::new();
-        let foo = s.add_expression(var("foo"));
-        let eref = s.add_expression(Expression::FieldAccess(foo, "bar".to_string()));
-        assert_parses_expr(&s, eref, "foo.bar");
+        assert_parses_expr("foo.bar", "(access foo bar)");
     }
 
     #[test]
     fn test_binary_ops() {
-        let mut s = Syntax::new();
-        let ten = s.add_expression(l_int(10));
-        let three = s.add_expression(l_int(3));
-        let two = s.add_expression(l_int(2));
-        let ten_minus_three = s.add_expression(
-            Expression::BinaryOperator(BinaryOp::Minus, ten, three));
-        let eref = s.add_expression(
-            Expression::BinaryOperator(BinaryOp::Minus, ten_minus_three, two));
-        assert_parses_expr(&s, eref, "10 - 3 - 2");
-        assert_parses_expr(&s, eref, "10-3-2");
+        let expected = "(binary - (binary - 10 3) 2)";
+        assert_parses_expr("10 - 3 - 2", expected);
+        assert_parses_expr("10-3-2", expected);
     }
 
     #[test]
     fn test_mixing_binary_and_unary() {
-        let mut s = Syntax::new();
-        let ten = s.add_expression(l_int(10));
-        let five = s.add_expression(l_int(5));
-        let minus_five = s.add_expression(Expression::UnaryOperator(UnaryOp::Negate, five));
-        let eref = s.add_expression(
-            Expression::BinaryOperator(BinaryOp::Minus, ten, minus_five));
-        assert_parses_expr(&s, eref, "10 - -5");
-        assert_parses_expr(&s, eref, "10--5");
-
-        assert_inspects("10 - -5", "(binary - 10 (unary - 5))");
+        let expected = "(binary - 10 (unary - 5))";
+        assert_parses_expr("10 - -5", expected);
+        assert_parses_expr("10-- 5", expected);
+        assert_parses_expr("10--5", expected);
     }
 }
