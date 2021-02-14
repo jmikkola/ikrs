@@ -482,7 +482,8 @@ pub struct MatchStatement {
 #[cfg(test)]
 impl Inspect for MatchStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        write!(f, "(match")?;
+        write!(f, "(match ")?;
+        self.matched.inspect(f, s)?;
         for matcher in self.matchers.iter() {
             write!(f, " ")?;
             matcher.inspect(f, s)?;
@@ -493,8 +494,8 @@ impl Inspect for MatchStatement {
 
 #[derive(Debug)]
 pub struct Matcher {
-    pattern: Pattern,
-    body: StatementRef,
+    pub pattern: Pattern,
+    pub body: StatementRef,
 }
 
 #[cfg(test)]

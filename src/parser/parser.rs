@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
         self.syntax.add_statement(stmt)
     }
 
-    fn parse_match_block(&mut self, indent: u32) -> Result<Vec<Matcher>, StatementRef> {
+    fn parse_match_block(&mut self, parent_indent: u32) -> Result<Vec<Matcher>, StatementRef> {
         if !self.require_next(Token::Colon) {
             return Err(self.statement_error("expected a colon after the matched expression"));
         }
@@ -153,13 +153,14 @@ impl<'a> Parser<'a> {
             }
 
             // Make sure the indent is valid and the block hasn't ended
-            match new_indent {
+            let indent = match new_indent {
                 None => {
-                    if location.col <= indent {
+                    if location.col <= parent_indent {
                         // The block ended with no statements
                         break;
                     }
                     new_indent = Some(location.col);
+                    location.col
                 },
                 Some(level) => {
                     if location.col > level {
@@ -169,18 +170,33 @@ impl<'a> Parser<'a> {
                         // The block has ended
                         break;
                     }
+                    level
                 },
-            }
+            };
 
-            let matcher = self.parse_match_arm(new_indent);
+            let matcher = self.parse_match_arm(indent)?;
             matchers.push(matcher);
         }
 
         Ok(matchers)
     }
 
-    fn parse_match_arm(&mut self, indent: Option<u32>) -> Matcher {
-        panic!("todo")
+    fn parse_match_arm(&mut self, indent: u32) -> Result<Matcher, StatementRef> {
+        let location = match self.peek() {
+            None => {
+                return Err(self.statement_error("expected a pattern, got EOF"));
+            },
+            Some((_, loc)) => loc,
+        };
+
+        if location.col != indent {
+            self.next(); // avoid infinite loops
+            return Err(self.statement_error("pattern is at wrong level of indentation"));
+        }
+
+        let pat = self.parse_pattern();
+        let block = self.parse_block(indent);
+        Ok(Matcher{pattern: pat, body: block})
     }
 
     fn parse_pattern(&mut self) -> Pattern {

@@ -10,7 +10,9 @@ fn assert_parses_pattern(input: &str, expected: &str) {
 }
 
 fn assert_parses_stmt(input: &str, expected: &str) {
-    assert_parses(input, expected, true, |parser| parser.parse_statement(None));
+    let to_trim: &[_] = &[' ', '\n'];
+    let trimmed = input.trim_start_matches(to_trim);
+    assert_parses(trimmed, expected, true, |parser| parser.parse_statement(None));
 }
 
 fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
@@ -219,4 +221,18 @@ fn test_struct_pattern() {
     assert_parses_pattern("Some(_,)", "(match-struct Some wildcard)");
     assert_parses_pattern("Pair(1, 2)", "(match-struct Pair (lit 1) (lit 2))");
     assert_parses_pattern("Pair(1, 2,)", "(match-struct Pair (lit 1) (lit 2))");
+}
+
+#[test]
+fn test_match() {
+    let stmt = r#"
+        match foo:
+          None:
+            x = 1
+          Some(y):
+            x = y
+    "#;
+    let expected = "(match foo (case (match-struct None) (do (assign x 1))) \
+                    (case (match-struct Some y) (do (assign x y))))";
+    assert_parses_stmt(stmt, expected);
 }
