@@ -75,8 +75,7 @@ impl<'a> Parser<'a> {
             },
             Token::KeywordWhile => {
                 self.next();
-                // TODO: While statement
-                self.statement_error("TODO")
+                self.parse_while(location.col)
             },
             Token::KeywordFor => {
                 self.next();
@@ -109,6 +108,14 @@ impl<'a> Parser<'a> {
                 self.statement_error("Unexpected token after statement")
             },
         }
+    }
+
+    fn parse_while(&mut self, indent: u32) -> StatementRef {
+        let test = self.parse_expression();
+        let body = self.parse_block(indent);
+        let while_statement = WhileStatement{test: test, body: body};
+        let stmt = Statement::WhileStmt(Box::new(while_statement));
+        self.syntax.add_statement(stmt)
     }
 
     fn parse_if(&mut self, indent: u32) -> StatementRef {
@@ -647,12 +654,19 @@ mod test {
     #[test]
     fn test_if_else() {
         let stmt = "if 0 != 0:\n  return 1\nelse:\n  return 1\n  return 2\n";
-        assert_parses_stmt(stmt, "(if (binary != 0 0) (do (return 1)) (do (return 1) (return 2)))");
+        let expected = "(if (binary != 0 0) (do (return 1)) (do (return 1) (return 2)))";
+        assert_parses_stmt(stmt, expected);
     }
 
     #[test]
     fn test_nested_if_statements() {
         let stmt = "if 1:\n  if 2:\n    return 3\n  return 4";
         assert_parses_stmt(stmt, "(if 1 (do (if 2 (do (return 3))) (return 4)))");
+    }
+
+    #[test]
+    fn test_while() {
+        let stmt = "while 1:\n  return 2";
+        assert_parses_stmt(stmt, "(while 1 (do (return 2)))");
     }
 }

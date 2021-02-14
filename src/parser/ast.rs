@@ -436,8 +436,8 @@ impl Inspect for IfStatement {
 
 #[derive(Debug)]
 pub struct WhileStatement {
-    test: ExpressionRef,
-    body: StatementRef,
+    pub test: ExpressionRef,
+    pub body: StatementRef,
 }
 
 #[cfg(test)]
