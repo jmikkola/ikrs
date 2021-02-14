@@ -31,3 +31,9 @@ impl Location {
         other.col > self.col
     }
 }
+
+impl ToString for Location {
+    fn to_string(&self) -> String {
+        format!("line {}, column {}", self.line + 1, self.col + 1)
+    }
+}
