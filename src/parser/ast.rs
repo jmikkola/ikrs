@@ -148,7 +148,11 @@ impl Inspect for Statement {
                 expr.inspect(f, s)?;
                 write!(f, ")")
             },
-            ExprStmt(expr) => expr.inspect(f, s),
+            ExprStmt(expr) => {
+                write!(f, "(expr ")?;
+                expr.inspect(f, s)?;
+                write!(f, ")")
+            },
             LetStmt(var, expr) => {
                 write!(f, "(let {} ",  var)?;
                 expr.inspect(f, s)?;

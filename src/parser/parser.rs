@@ -86,16 +86,11 @@ impl<'a> Parser<'a> {
                 // TODO: Match statement
                 self.statement_error("TODO")
             },
-            Token::ValueName(name) => {
-                self.next();
-                // TODO: Parse assignment or expression
-                self.statement_error("TODO")
+            Token::ValueName(name) => match self.peek_next() {
+                Some((Token::Equals, _)) => self.parse_assign(),
+                _ => self.parse_expr_stmt(),
             },
-            _ => {
-                let expr = self.parse_expression();
-                let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
-                self.eat_trailing_newline(stmt)
-            },
+            _ => self.parse_expr_stmt(),
         }
     }
 
@@ -114,6 +109,12 @@ impl<'a> Parser<'a> {
             Some((Token::ValueName(s), _)) => Ok(s.clone()),
             _ => Err(self.statement_error("Expected a name")),
         }
+    }
+
+    fn parse_expr_stmt(&mut self) -> StatementRef {
+        let expr = self.parse_expression();
+        let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
+        self.eat_trailing_newline(stmt)
     }
 
     fn parse_for(&mut self, indent: u32) -> StatementRef {
@@ -248,6 +249,23 @@ impl<'a> Parser<'a> {
 
         let expr = self.parse_expression();
         let stmt = Statement::LetStmt(name, expr);
+        self.syntax.add_statement(stmt)
+    }
+
+    fn parse_assign(&mut self) -> StatementRef {
+        let name = match self.next() {
+            Some((Token::ValueName(n), _)) => n.clone(),
+            _ => {
+                return self.statement_error("Expected a name for an assignment");
+            },
+        };
+
+        if !self.require_next(Token::Equals) {
+            return self.statement_error("Expected an = after let <name>");
+        }
+
+        let expr = self.parse_expression();
+        let stmt = Statement::AssignStmt(name, expr);
         self.syntax.add_statement(stmt)
     }
 
@@ -476,6 +494,10 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.index)
     }
 
+    fn peek_next(&self) -> Option<&'a (Token, Location)> {
+        self.tokens.get(self.index + 1)
+    }
+
     fn is_next(&self, expected: Token) -> bool {
         match self.peek() {
             None => false,
@@ -695,5 +717,16 @@ mod test {
     fn test_for() {
         let stmt = "for a in x:\n  return a";
         assert_parses_stmt(stmt, "(for a in x (do (return a)))");
+    }
+
+    #[test]
+    fn test_assignment() {
+        assert_parses_stmt("a = 5", "(assign a 5)");
+    }
+
+    #[test]
+    fn test_expression_statements() {
+        assert_parses_stmt("x", "(expr x)");
+        assert_parses_stmt("foo()", "(expr (call foo))");
     }
 }
