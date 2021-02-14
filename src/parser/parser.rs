@@ -56,14 +56,18 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let result = match token {
+        // Only eat trailing newlines on statments that don't contain smaller
+        // statements
+        match token {
             Token::KeywordReturn => {
                 self.next();
-                self.parse_return()
+                let stmt = self.parse_return();
+                self.eat_trailing_newline(stmt)
             },
             Token::KeywordLet => {
                 self.next();
-                self.parse_let()
+                let stmt = self.parse_let();
+                self.eat_trailing_newline(stmt)
             },
             Token::KeywordIf => {
                 self.next();
@@ -85,16 +89,19 @@ impl<'a> Parser<'a> {
                 self.statement_error("TODO")
             },
             Token::ValueName(name) => {
+                self.next();
                 // TODO: Parse assignment or expression
                 self.statement_error("TODO")
             },
             _ => {
                 let expr = self.parse_expression();
-                let stmt = Statement::ExprStmt(expr);
-                self.syntax.add_statement(stmt)
+                let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
+                self.eat_trailing_newline(stmt)
             },
-        };
+        }
+    }
 
+    fn eat_trailing_newline(&mut self, result: StatementRef) -> StatementRef {
         match self.next() {
             // A statement can be the last line in a file
             None | Some((Token::Newline, _)) => result,
@@ -108,9 +115,18 @@ impl<'a> Parser<'a> {
         let test = self.parse_expression();
         let tbody = self.parse_block(indent);
 
-        // TODO: Else statement
+        let ebody = if let Some((Token::KeywordElse, location)) = self.peek() {
+            self.next();
+            if location.col != indent {
+                return self.statement_error("'else' not at expected indentation");
+            }
 
-        let if_statement = IfStatement{test: test, tbody: tbody, ebody: None};
+            Some(self.parse_block(indent))
+        } else {
+            None
+        };
+
+        let if_statement = IfStatement{test: test, tbody: tbody, ebody: ebody};
         let stmt = Statement::IfStmt(Box::new(if_statement));
         self.syntax.add_statement(stmt)
     }
@@ -620,5 +636,23 @@ mod test {
     fn test_if_with_two_statements() {
         let stmt = "if 1:\n  return\n  return    123\n";
         assert_parses_stmt(stmt, "(if 1 (do (return) (return 123)))");
+    }
+
+    #[test]
+    fn test_if_with_statement_after() {
+        let stmt = "if 1:\n  return\nreturn    123\n";
+        assert_parses_stmt(stmt, "(if 1 (do (return)))");
+    }
+
+    #[test]
+    fn test_if_else() {
+        let stmt = "if 0 != 0:\n  return 1\nelse:\n  return 1\n  return 2\n";
+        assert_parses_stmt(stmt, "(if (binary != 0 0) (do (return 1)) (do (return 1) (return 2)))");
+    }
+
+    #[test]
+    fn test_nested_if_statements() {
+        let stmt = "if 1:\n  if 2:\n    return 3\n  return 4";
+        assert_parses_stmt(stmt, "(if 1 (do (if 2 (do (return 3))) (return 4)))");
     }
 }
