@@ -245,3 +245,25 @@ fn test_match() {
 fn test_simple_type() {
     assert_parses_type("Int", "Int");
 }
+
+#[test]
+fn test_type_with_generics() {
+    assert_parses_type("Foo<>", "(generic Foo)");
+    assert_parses_type("Foo<Bar,>", "(generic Foo Bar)");
+    assert_parses_type("Result<Error, Option<Int>>", "(generic Result Error (Generic Option Int))");
+}
+
+#[test]
+fn test_void_type() {
+    assert_parses_type("()", "void");
+}
+
+#[test]
+fn test_function_type() {
+    assert_parses_type("fn() ()", "(function () void)");
+    assert_parses_type("fn(Int) Bool", "(function (Int) Bool)");
+}
+
+// TODO: Type variables being lowercase might make the syntax ambiguous is this
+// a tuple of two boolean expressions, or a type followed by a call?
+// (a<b,c>(d))
