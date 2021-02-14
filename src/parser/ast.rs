@@ -1,3 +1,4 @@
+#[cfg(test)]
 use std::fmt;
 
 // Syntax contains the results of parsing one file
@@ -10,6 +11,9 @@ pub struct Syntax {
 }
 
 // Index types
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DeclarationRef(usize);
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StatementRef(usize);
 
@@ -86,6 +90,18 @@ impl Syntax {
         let sref = self.statements.len();
         self.statements.push(stmt);
         StatementRef(sref)
+    }
+
+    pub fn add_declaration(&mut self, decl: Declaration) -> DeclarationRef {
+        let dref = self.declarations.len();
+        self.declarations.push(decl);
+        DeclarationRef(dref)
+    }
+
+    pub fn add_type(&mut self, t: Type) -> TypeRef {
+        let tref = self.types.len();
+        self.types.push(t);
+        TypeRef(tref)
     }
 }
 

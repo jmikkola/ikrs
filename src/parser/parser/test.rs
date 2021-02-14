@@ -1,6 +1,10 @@
 use super::super::tokenize::tokenize;
 use super::*;
 
+fn assert_parses_type(input: &str, expected: &str) {
+    assert_parses(input, expected, true, |parser| parser.parse_type());
+}
+
 fn assert_parses_expr(input: &str, expected: &str) {
     assert_parses(input, expected, true, |parser| parser.parse_expression());
 }
@@ -235,4 +239,9 @@ fn test_match() {
     let expected = "(match foo (case (match-struct None) (do (assign x 1))) \
                     (case (match-struct Some y) (do (assign x y))))";
     assert_parses_stmt(stmt, expected);
+}
+
+#[test]
+fn test_simple_type() {
+    assert_parses_type("Int", "Int");
 }

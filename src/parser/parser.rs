@@ -1,5 +1,3 @@
-use std::iter;
-
 use super::ast::*;
 use super::tokens::Token;
 use super::location::Location;
@@ -11,14 +9,6 @@ pub fn parse<'a>(tokens: &'a Vec<(Token, Location)>) -> Syntax {
     Parser::new(tokens).parse()
 }
 
-
-/*
-Ideas:
-
-- enumerate the tokens, allowing errors to contain the token offset
-- add a location and explaination enum to StatementParseError
-- add an error utility to show the tokens starting from the error
- */
 
 struct Parser<'a> {
     tokens: &'a Vec<(Token, Location)>,
@@ -43,6 +33,93 @@ impl<'a> Parser<'a> {
     fn parse(self) -> Syntax {
         // TODO
         self.syntax
+    }
+
+    fn parse_declaration(&mut self, indent: Option<u32>) -> DeclarationRef {
+        let (token, location) = match self.next() {
+            None => {
+                return self.declaration_error("Expected a declaration, got EOF");
+            },
+            Some(tok) => tok,
+        };
+
+        let current_indent = location.col;
+        if let Some(level) = indent {
+            if current_indent != level {
+                return self.declaration_error("Declaration not at expected indentation");
+            }
+        }
+
+        match token {
+            Token::KeywordPackage => {
+                let decl = self.parse_package();
+                self.eat_newline_decl(decl)
+            },
+            Token::KeywordImport => {
+                let decl = self.parse_import();
+                self.eat_newline_decl(decl)
+            },
+            Token::KeywordType => {
+                self.parse_type_decl(current_indent)
+            },
+            Token::KeywordFn => {
+                self.parse_func_decl(current_indent)
+            },
+            // TODO: Handle Implementation declarations
+            _ => {
+                self.declaration_error("bad declaration")
+            },
+        }
+    }
+
+    fn parse_package(&mut self) -> DeclarationRef {
+        panic!("TODO")
+    }
+
+    fn parse_import(&mut self) -> DeclarationRef {
+        panic!("TODO")
+    }
+
+    fn parse_type_decl(&mut self, indent: u32) -> DeclarationRef {
+        panic!("TODO")
+    }
+
+    fn parse_func_decl(&mut self, indent: u32) -> DeclarationRef {
+        panic!("TODO")
+    }
+
+    fn eat_newline_decl(&mut self, result: DeclarationRef) -> DeclarationRef {
+        match self.next() {
+            // A declaration can be the last line in a file
+            None | Some((Token::Newline, _)) => result,
+            Some((t, _)) => {
+                self.declaration_error("Unexpected token after declaration")
+            },
+        }
+    }
+
+    // Parse a type as a type would be used (e.g. 'Int' or 'Option<Bool>'), but
+    // not declarations of types.
+    fn parse_type(&mut self) -> TypeRef {
+        let tok = match self.next_token() {
+            Some(t) => t,
+            None => {
+                return self.type_error("Expected a type, got EOF");
+            },
+        };
+
+        match tok {
+            Token::TypeName(name) => {
+                // TODO: Handle generics
+                // TODO: Handle function types
+                let t = Type::TypeName(name.clone());
+                self.syntax.add_type(t)
+            },
+            // TODO: Handle tuples
+            _ => {
+                self.type_error("Bad type")
+            },
+        }
     }
 
     fn parse_statement(&mut self, indent: Option<u32>) -> StatementRef {
@@ -685,6 +762,10 @@ impl<'a> Parser<'a> {
         result
     }
 
+    fn next_token(&mut self) -> Option<&'a Token> {
+        self.next().map(|(t, _)| t)
+    }
+
     fn is_done(&self) -> bool {
         self.peek().is_none()
     }
@@ -713,6 +794,16 @@ impl<'a> Parser<'a> {
 
     fn add_error(&mut self, message: &str) {
         self.errors.push((self.index, message.to_string()));
+    }
+
+    fn type_error(&mut self, message: &str) -> TypeRef {
+        self.add_error(message);
+        self.syntax.add_type(Type::TypeParseError)
+    }
+
+    fn declaration_error(&mut self, message: &str) -> DeclarationRef {
+        self.add_error(message);
+        self.syntax.add_declaration(Declaration::DeclarationParseError)
     }
 
     fn statement_error(&mut self, message: &str) -> StatementRef {
