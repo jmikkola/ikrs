@@ -4,10 +4,267 @@ use super::ast::*;
 use super::tokens::Token;
 use super::location::Location;
 
-pub fn parse(tokens: Vec<(Token, Location)>) -> Syntax {
-    let mut result = Syntax::new();
+pub fn parse<'a>(tokens: &'a Vec<(Token, Location)>) -> Syntax {
+    Parser::new(tokens).parse()
+}
 
-    result
+struct Parser<'a> {
+    tokens: &'a Vec<(Token, Location)>,
+    index: usize,
+    syntax: Syntax,
+}
+
+impl<'a> Parser<'a> {
+    fn new(tokens: &'a Vec<(Token, Location)>) -> Self {
+        Parser{
+            tokens: tokens,
+            index: 0,
+            syntax: Syntax::new(),
+        }
+    }
+
+    fn parse(self) -> Syntax {
+        // TODO
+        self.syntax
+    }
+
+    // Parse binary operators (e.g. 1 + 2 - 3)
+    // TODO: Handle the operators ^ & | ** << >>
+    fn parse_expression(&mut self) -> ExpressionRef {
+        // Gather terms and operators
+        let mut unary_exprs = vec![];
+        let mut operators: Vec<(BinaryOp, u16)> = vec![];
+
+        unary_exprs.push(self.parse_unary());
+
+        loop {
+            let token = match self.peek() {
+                None => break,
+                Some((t, _)) => t,
+            };
+
+            let (op, precedence) = match token {
+                Token::DoubleOr      => (BinaryOp::BoolOr, 0),
+                Token::DoubleAnd     => (BinaryOp::BoolAnd, 1),
+                Token::DoubleEquals  => (BinaryOp::Equal, 2),
+                Token::NotEquals     => (BinaryOp::NotEqual, 2),
+                Token::Less          => (BinaryOp::Less, 3),
+                Token::LessEquals    => (BinaryOp::LessEqual, 3),
+                Token::Greater       => (BinaryOp::Greater, 3),
+                Token::GreaterEquals => (BinaryOp::GreaterEqual, 3),
+                Token::Plus          => (BinaryOp::Plus, 4),
+                Token::Minus         => (BinaryOp::Minus, 4),
+                Token::Star          => (BinaryOp::Times, 5),
+                Token::Slash         => (BinaryOp::Divide, 5),
+                Token::Percent       => (BinaryOp::Mod, 5),
+                // Reached the end of the binary expressions
+                _ => break,
+            };
+            self.next();
+
+            operators.push((op, precedence));
+            unary_exprs.push(self.parse_unary());
+        }
+
+        // Group expression by precedence
+        let max_prec: u16 = 5;
+        // Do one pass for each level of precedence, grouping just items at that
+        // level of precedence
+        for p in 0..=max_prec {
+            let precedence = max_prec - p;
+
+            debug_assert!(
+                unary_exprs.len() == 1 + operators.len(),
+                "have {:?} unary exprs and {:?} operators",
+                unary_exprs, operators
+            );
+
+            let mut remaining_exprs: Vec<ExpressionRef> = vec![unary_exprs[0]];
+            let mut remaining_operators: Vec<(BinaryOp, u16)> = vec![];
+
+            // Loop through the current expressions and operators, looking for
+            // things to group
+            for (i, (op, prec)) in operators.iter().enumerate() {
+                if *prec == precedence {
+                    let left = remaining_exprs.pop().unwrap();
+                    let right = unary_exprs[i + 1];
+                    let expr = Expression::BinaryOperator(*op, left, right);
+                    remaining_exprs.push(self.syntax.add_expression(expr));
+                } else {
+                    remaining_exprs.push(unary_exprs[i + 1]);
+                    remaining_operators.push((*op, *prec));
+                }
+            }
+
+            unary_exprs = remaining_exprs;
+            operators = remaining_operators;
+        }
+
+        debug_assert!(unary_exprs.len() == 1);
+        debug_assert!(operators.len() == 0);
+        *unary_exprs.first().unwrap()
+    }
+
+    // Unary operators and the value they apply to
+    fn parse_unary(&mut self) -> ExpressionRef {
+        let token = match self.peek() {
+            None => {
+                return self.syntax.add_expression(Expression::ExpressionParseError)
+            },
+            Some((t, _)) => t,
+        };
+
+        match token {
+            Token::Bang => {
+                self.next();
+                let inner = self.parse_unary();
+                let op = UnaryOp::BoolNot;
+                let expr = Expression::UnaryOperator(op, inner);
+                self.syntax.add_expression(expr)
+            },
+            Token::Tilda => {
+                self.next();
+                let inner = self.parse_unary();
+                let op = UnaryOp::BitInvert;
+                let expr = Expression::UnaryOperator(op, inner);
+                self.syntax.add_expression(expr)
+            },
+            Token::Minus => {
+                self.next();
+                let inner = self.parse_unary();
+                let op = UnaryOp::Negate;
+                let expr = Expression::UnaryOperator(op, inner);
+                self.syntax.add_expression(expr)
+            },
+            _ => {
+                self.parse_term()
+            },
+        }
+    }
+
+    // Single values and field access, array access, and function calls
+    fn parse_term(&mut self) -> ExpressionRef {
+        let mut value = self.parse_single_value();
+
+        // This loop handles zero or more field access, offet access, and/or
+        // function arguments after an expression.
+        // E.g. if the expression is `x.foo[1].bar()`, then `x` is the current value
+        // and each time though the loop picks up another one of `.foo`, `[1]`,
+        // `.bar`, and `()`.
+        loop {
+            value = match self.peek() {
+                Some((Token::LParen, _)) => {
+                    self.next();
+                    let mut args = vec![];
+
+                    // Read args passed to function, allowing a trailing comma
+                    while !self.is_next(Token::RParen) {
+                        args.push(self.parse_expression());
+                        if self.is_next(Token::Comma) {
+                            self.next();
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if self.require_next(Token::RParen) {
+                        self.syntax.add_expression(Expression::FunctionCall(value, args))
+                    } else {
+                        self.syntax.add_expression(Expression::ExpressionParseError)
+                    }
+                },
+                Some((Token::LBracket, _)) => {
+                    self.next();
+                    let offset = self.parse_expression();
+
+                    if self.require_next(Token::RBracket) {
+                        self.syntax.add_expression(Expression::OffsetAccess(value, offset))
+                    } else {
+                        self.syntax.add_expression(Expression::ExpressionParseError)
+                    }
+                },
+                Some((Token::Dot, _)) => {
+                    self.next();
+                    // expecting a field name
+                    match self.next() {
+                        Some((Token::ValueName(s), _)) => {
+                            self.syntax.add_expression(Expression::FieldAccess(value, s.clone()))
+                        },
+                        _ => {
+                            self.syntax.add_expression(Expression::ExpressionParseError)
+                        }
+                    }
+                },
+                _ => {
+                    return value
+                },
+            }
+        }
+    }
+
+    // Literals, variables, and parentheticals
+    fn parse_single_value(&mut self) -> ExpressionRef {
+        let token = match self.next() {
+            None => {
+                return self.syntax.add_expression(Expression::ExpressionParseError)
+            },
+            Some((t, _)) => t,
+        };
+
+        match token {
+            Token::LParen => {
+                let inner = self.parse_expression();
+                if self.require_next(Token::RParen) {
+                    self.syntax.add_expression(Expression::Paren(inner))
+                } else {
+                    self.syntax.add_expression(Expression::ExpressionParseError)
+                }
+            },
+            Token::IntLiteral(i) => {
+                let expr = Expression::Literal(Literal::Integer(*i));
+                self.syntax.add_expression(expr)
+            },
+            Token::FloatLiteral(f) => {
+                let expr = Expression::Literal(Literal::Float(*f));
+                self.syntax.add_expression(expr)
+            },
+            Token::StringLiteral(s) => {
+                let expr = Expression::Literal(Literal::String(s.clone()));
+                self.syntax.add_expression(expr)
+            },
+            Token::ValueName(s) => {
+                let expr = Expression::Variable(s.clone());
+                self.syntax.add_expression(expr)
+            },
+            _ => self.syntax.add_expression(Expression::ExpressionParseError),
+        }
+    }
+
+    fn next(&mut self) -> Option<&'a (Token, Location)> {
+        let result = self.peek();
+        if result.is_some() {
+            self.index += 1;
+        }
+        result
+    }
+
+    fn peek(&self) -> Option<&'a (Token, Location)> {
+        self.tokens.get(self.index)
+    }
+
+    fn is_next(&self, expected: Token) -> bool {
+        match self.peek() {
+            None => false,
+            Some((token, _)) => *token == expected,
+        }
+    }
+
+    fn require_next(&mut self, expected: Token) -> bool {
+        match self.next() {
+            None => false,
+            Some((token, _)) => *token == expected,
+        }
+    }
 }
 
 /*
@@ -15,6 +272,7 @@ Ideas:
 
 - enumerate the tokens, allowing errors to contain the token offset
 - add a location and explaination enum to StatementParseError
+- add an error utility to show the tokens starting from the error
 */
 
 fn parse_statement<'a, I>(
@@ -197,7 +455,7 @@ where I: iter::Iterator<Item=&'a (Token, Location)> {
     syntax.add_statement(stmt)
 }
 
-// TODO: Handle the operators ^ & | ** << >>
+
 
 // Operators at this level of precedence: ||
 fn parse_expression<'a, I>(cursor: &mut iter::Peekable<I>, syntax: &mut Syntax) -> ExpressionRef
@@ -469,10 +727,10 @@ mod test {
     use super::*;
 
     fn assert_parses_expr(input: &str, expected: &str) {
-        let mut s = Syntax::new();
-        let eref = parse_expression(
-            &mut tokenize(input).iter().peekable(),
-            &mut s);
+        let tokens = tokenize(input);
+        let mut parser = Parser::new(&tokens);
+        let eref = parser.parse_expression();
+        let s = parser.syntax;
         let inspected = inspect(eref, &s).unwrap();
         assert_eq!(expected, inspected.as_str());
     }
@@ -489,7 +747,7 @@ mod test {
 
     #[test]
     fn test_empty() {
-        let result = parse(vec![]);
+        let result = parse(&vec![]);
         assert!(result.statements.is_empty());
     }
 
@@ -603,6 +861,7 @@ mod test {
     #[test]
     fn test_if_with_two_statements() {
         let stmt = "if 1:\n  return\n  return 123\n";
+        println!("tokens: {:?}", tokenize(stmt));
         assert_parses_stmt(stmt, "(if 1 (do (return) (return 123)))");
     }
 }
