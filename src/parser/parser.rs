@@ -183,6 +183,113 @@ impl<'a> Parser<'a> {
         panic!("todo")
     }
 
+    fn parse_pattern(&mut self) -> Pattern {
+        let tok = match self.next() {
+            Some((t, _)) => t,
+            None => {
+                self.add_error("unexpected EOF in pattern");
+                return Pattern::PatternParseError;
+            },
+        };
+
+        match tok {
+            Token::ValueName(name) => {
+                if let Some((Token::Ampersand, _)) = self.peek() {
+                    self.next();
+                    let pat = self.parse_pattern();
+                    Pattern::Named(name.clone(), Box::new(pat))
+                } else if name == "_" {
+                    Pattern::Underscore
+                } else {
+                    Pattern::Name(name.clone())
+                }
+            },
+            Token::TypeName(name) => self.parse_struct_pattern(name.clone()),
+            Token::IntLiteral(i) => Pattern::Literal(Literal::Integer(*i)),
+            Token::FloatLiteral(f) => Pattern::Literal(Literal::Float(*f)),
+            Token::StringLiteral(s) => Pattern::Literal(Literal::String(s.clone())),
+            Token::LParen => self.parse_tuple_pattern(),
+            _ => {
+                self.add_error("invalid pattern");
+                Pattern::PatternParseError
+            },
+        }
+    }
+
+    fn parse_struct_pattern(&mut self, name: String) -> Pattern {
+        let mut fields = vec![];
+
+        if self.is_next(Token::LParen) {
+            self.next();
+
+            loop {
+                match self.peek() {
+                    None => break,
+                    Some((Token::RParen, _)) => break,
+                    _ => {},
+                }
+
+                let pat = self.parse_pattern();
+                fields.push(pat);
+
+                match self.peek() {
+                    Some((Token::Comma, _)) => {
+                        self.next();
+                    },
+                    _ => break,
+                }
+            }
+
+            if !self.require_next(Token::RParen) {
+                self.add_error("unclosed structure pattern");
+                return Pattern::PatternParseError;
+            }
+        }
+
+        let struct_pattern = StructPattern{
+            struct_name: name,
+            field_patterns: fields,
+        };
+        Pattern::Structure(Box::new(struct_pattern))
+    }
+
+    fn parse_tuple_pattern(&mut self) -> Pattern {
+        let mut patterns = vec![];
+
+        loop {
+            match self.peek() {
+                None => {
+                    self.add_error("unclosed tuple pattern");
+                    return Pattern::PatternParseError;
+                },
+                Some((Token::RParen, _)) => {
+                    break;
+                },
+                _ => {
+                    let pat = self.parse_pattern();
+                    patterns.push(pat);
+
+                    // The next token should be a comma or close paren
+                    match self.peek() {
+                        Some((Token::Comma, _)) => {
+                            self.next();
+                        },
+                        _ => {
+                            break;
+                        },
+                    }
+                },
+            }
+        }
+
+        if !self.require_next(Token::RParen) {
+            self.add_error("Expected a right paren closing the tuple pattern");
+            return Pattern::PatternParseError;
+        }
+
+        Pattern::Tuple(patterns)
+    }
+
     fn parse_expr_stmt(&mut self) -> StatementRef {
         let expr = self.parse_expression();
         let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
@@ -562,6 +669,10 @@ impl<'a> Parser<'a> {
         result
     }
 
+    fn is_done(&self) -> bool {
+        self.peek().is_none()
+    }
+
     fn peek(&self) -> Option<&'a (Token, Location)> {
         self.tokens.get(self.index)
     }
@@ -584,13 +695,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn statement_error(&mut self, message: &str) -> StatementRef {
+    fn add_error(&mut self, message: &str) {
         self.errors.push((self.index, message.to_string()));
+    }
+
+    fn statement_error(&mut self, message: &str) -> StatementRef {
+        self.add_error(message);
         self.syntax.add_statement(Statement::StatementParseError)
     }
 
     fn expression_error(&mut self, message: &str) -> ExpressionRef {
-        self.errors.push((self.index, message.to_string()));
+        self.add_error(message);
         self.syntax.add_expression(Expression::ExpressionParseError)
     }
 
@@ -604,11 +719,17 @@ impl<'a> Parser<'a> {
             .join(" ")
     }
 
-    fn show_error(&self, index: usize, message: &String) -> String {
-        format!("error: {} at around {}. Tokens: {}",
-                message,
-                self.tokens[index].1.to_string(),
-                self.preview(index))
+    fn show_error(&self, mut index: usize, message: &String) -> String {
+        index = index.min(self.tokens.len() - 1);
+        let location = if self.tokens.is_empty() {
+            "start".to_string()
+        } else {
+            self.tokens[index].1.to_string()
+        };
+        format!(
+            "error: {} at around {}. Tokens: {}",
+            message, location, self.preview(index)
+        )
     }
 
     fn show_errors(&self) -> Vec<String> {

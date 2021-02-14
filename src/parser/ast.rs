@@ -510,11 +510,14 @@ impl Inspect for Matcher {
 
 #[derive(Debug)]
 pub enum Pattern {
+    PatternParseError,
+
     Underscore,
     Name(String),
     Named(String, Box<Pattern>),
     Literal(Literal),
     Structure(Box<StructPattern>),
+    Tuple(Vec<Pattern>),
 }
 
 #[cfg(test)]
@@ -522,33 +525,45 @@ impl Inspect for Pattern {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Pattern::*;
         match self {
-            Underscore => write!(f, "_"),
+            PatternParseError => write!(f, "pattern-err"),
+            Underscore => write!(f, "wildcard"),
             Name(name) => write!(f, "{}", name),
             Named(name, pattern) => {
                 write!(f, "(@ {} ", name)?;
                 pattern.inspect(f, s)?;
                 write!(f, ")")
             },
-            Literal(lit) => lit.inspect(f, s),
+            Literal(lit) => {
+                write!(f, "(lit ")?;
+                lit.inspect(f, s)?;
+                write!(f, ")")
+            },
             Structure(pat) => pat.inspect(f, s),
+            Tuple(pats) => {
+                write!(f, "(tuple")?;
+                for pat in pats.iter() {
+                    write!(f, " ")?;
+                    pat.inspect(f, s)?;
+                }
+                write!(f, ")")
+            },
         }
     }
 }
 
 #[derive(Debug)]
 pub struct StructPattern {
-    struct_name: String,
-    field_patterns: Vec<(String, Pattern)>,
+    pub struct_name: String,
+    pub field_patterns: Vec<Pattern>,
 }
 
 #[cfg(test)]
 impl Inspect for StructPattern {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         write!(f, "(match-struct {}", self.struct_name)?;
-        for (name, pat) in self.field_patterns.iter() {
-            write!(f, " ({} ", name)?;
+        for pat in self.field_patterns.iter() {
+            write!(f, " ")?;
             pat.inspect(f, s)?;
-            write!(f, ")")?;
         }
         write!(f, ")")
     }

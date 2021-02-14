@@ -2,23 +2,30 @@ use super::super::tokenize::tokenize;
 use super::*;
 
 fn assert_parses_expr(input: &str, expected: &str) {
-    let tokens = tokenize(input);
-    let mut parser = Parser::new(&tokens);
-    let eref = parser.parse_expression();
-    let errors = parser.show_errors();
-    let s = parser.syntax;
-    let inspected = inspect(eref, &s).unwrap();
-    assert_eq!(expected, inspected.as_str(), "{}", errors.join(", "));
+    assert_parses(input, expected, true, |parser| parser.parse_expression());
+}
+
+fn assert_parses_pattern(input: &str, expected: &str) {
+    assert_parses(input, expected, true, |parser| parser.parse_pattern());
 }
 
 fn assert_parses_stmt(input: &str, expected: &str) {
+    assert_parses(input, expected, true, |parser| parser.parse_statement(None));
+}
+
+fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
+where F: Fn(&mut Parser) -> I, I: Inspect {
     let tokens = tokenize(input);
     let mut parser = Parser::new(&tokens);
-    let sref = parser.parse_statement(None);
+    let inspectable = f(&mut parser);
     let errors = parser.show_errors();
+    let is_done = parser.is_done();
     let s = parser.syntax;
-    let inspected = inspect(sref, &s).unwrap();
+    let inspected = inspect(inspectable, &s).unwrap();
     assert_eq!(expected, inspected.as_str(), "{}", errors.join(", "));
+    if require_done {
+        assert_eq!(true, is_done, "parser left extra input");
+    }
 }
 
 #[test]
@@ -142,8 +149,9 @@ fn test_if_with_two_statements() {
 
 #[test]
 fn test_if_with_statement_after() {
-    let stmt = "if 1:\n  return\nreturn    123\n";
-    assert_parses_stmt(stmt, "(if 1 (do (return)))");
+    let input = "if 1:\n  return\nreturn    123\n";
+    let expected = "(if 1 (do (return)))";
+    assert_parses(input, expected, false, |parser| parser.parse_statement(None));
 }
 
 #[test]
@@ -180,4 +188,35 @@ fn test_assignment() {
 fn test_expression_statements() {
     assert_parses_stmt("x", "(expr x)");
     assert_parses_stmt("foo()", "(expr (call foo))");
+}
+
+#[test]
+fn test_simple_patterns() {
+    assert_parses_pattern("_", "wildcard");
+    assert_parses_pattern("foo", "foo");
+    assert_parses_pattern("123", "(lit 123)");
+}
+
+#[test]
+fn test_named_pattern() {
+    assert_parses_pattern("foo@1", "(@ foo (lit 1))");
+    assert_parses_pattern("_@_", "(@ _ wildcard)");
+}
+
+#[test]
+fn test_tuple_pattern() {
+    assert_parses_pattern("()", "(tuple)");
+    assert_parses_pattern("(1, 2, x)", "(tuple (lit 1) (lit 2) x)");
+    // Allows a trailing comma
+    assert_parses_pattern("(1, 2, x,)", "(tuple (lit 1) (lit 2) x)");
+}
+
+#[test]
+fn test_struct_pattern() {
+    assert_parses_pattern("None", "(match-struct None)");
+    assert_parses_pattern("None()", "(match-struct None)");
+    assert_parses_pattern("Some(_)", "(match-struct Some wildcard)");
+    assert_parses_pattern("Some(_,)", "(match-struct Some wildcard)");
+    assert_parses_pattern("Pair(1, 2)", "(match-struct Pair (lit 1) (lit 2))");
+    assert_parses_pattern("Pair(1, 2,)", "(match-struct Pair (lit 1) (lit 2))");
 }

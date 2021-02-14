@@ -10,6 +10,7 @@ pub enum Token {
     Dot,
     Newline,
 
+    Ampersand,
     Bang,
     Caret,
     DoubleAnd,
@@ -78,6 +79,7 @@ impl fmt::Display for Token {
             Comma            => write!(f, ","),
             Dot              => write!(f, "."),
             Newline          => write!(f, "\n"),
+            Ampersand        => write!(f, "@"),
             Bang             => write!(f, "!"),
             Caret            => write!(f, "^"),
             DoubleAnd        => write!(f, "&&"),

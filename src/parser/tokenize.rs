@@ -229,6 +229,7 @@ pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
             _ if c.is_whitespace() => {
                 // Ignore it
             },
+            '@' => tokens.push((Token::Ampersand, location)),
             '.' => tokens.push((Token::Dot, location)),
             ',' => tokens.push((Token::Comma, location)),
             ':' => tokens.push((Token::Colon, location)),
@@ -466,9 +467,9 @@ mod test {
         let expected: Vec<Token> = vec![
             DoubleEquals, Equals, LParen, Plus,
             SingleOr, GreaterEquals, Greater,
-            DoubleOr, Caret,
+            DoubleOr, Caret, Ampersand,
         ];
-        let input = "===(+|>=>||^";
+        let input = "===(+|>=>||^@";
         assert_tokens(expected, input);
     }
 
