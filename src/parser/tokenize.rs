@@ -347,6 +347,7 @@ fn name_token(name: String) -> Token {
         "for"      => Token::KeywordFor,
         "if"       => Token::KeywordIf,
         "import"   => Token::KeywordImport,
+        "in"       => Token::KeywordIn,
         "instance" => Token::KeywordInstance,
         "let"      => Token::KeywordLet,
         "match"    => Token::KeywordMatch,

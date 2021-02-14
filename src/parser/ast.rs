@@ -453,9 +453,9 @@ impl Inspect for WhileStatement {
 
 #[derive(Debug)]
 pub struct ForStatement {
-    variable: String,
-    iterable: ExpressionRef,
-    body: StatementRef,
+    pub variable: String,
+    pub iterable: ExpressionRef,
+    pub body: StatementRef,
 }
 
 #[cfg(test)]

@@ -79,8 +79,7 @@ impl<'a> Parser<'a> {
             },
             Token::KeywordFor => {
                 self.next();
-                // TODO: For statement
-                self.statement_error("TODO")
+                self.parse_for(location.col)
             },
             Token::KeywordMatch => {
                 self.next();
@@ -108,6 +107,28 @@ impl<'a> Parser<'a> {
                 self.statement_error("Unexpected token after statement")
             },
         }
+    }
+
+    fn expect_name(&mut self) -> Result<String, StatementRef> {
+        match self.next() {
+            Some((Token::ValueName(s), _)) => Ok(s.clone()),
+            _ => Err(self.statement_error("Expected a name")),
+        }
+    }
+
+    fn parse_for(&mut self, indent: u32) -> StatementRef {
+        let variable = match self.expect_name() {
+            Ok(n) => n,
+            Err(sref) => return sref,
+        };
+        if !self.require_next(Token::KeywordIn) {
+            return self.statement_error("expected 'in' after the for loop's variable");
+        }
+        let iterable = self.parse_expression();
+        let body = self.parse_block(indent);
+        let for_statement = ForStatement{variable: variable, iterable: iterable, body: body};
+        let stmt = Statement::ForStmt(Box::new(for_statement));
+        self.syntax.add_statement(stmt)
     }
 
     fn parse_while(&mut self, indent: u32) -> StatementRef {
@@ -668,5 +689,11 @@ mod test {
     fn test_while() {
         let stmt = "while 1:\n  return 2";
         assert_parses_stmt(stmt, "(while 1 (do (return 2)))");
+    }
+
+    #[test]
+    fn test_for() {
+        let stmt = "for a in x:\n  return a";
+        assert_parses_stmt(stmt, "(for a in x (do (return a)))");
     }
 }
