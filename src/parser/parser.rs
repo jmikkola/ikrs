@@ -52,6 +52,7 @@ impl<'a> Parser<'a> {
 
         if let Some(level) = indent {
             if location.col != level {
+                self.next(); // eat a token to avoid infinite loops
                 return self.statement_error("Statement not at expected indentation");
             }
         }
@@ -83,8 +84,7 @@ impl<'a> Parser<'a> {
             },
             Token::KeywordMatch => {
                 self.next();
-                // TODO: Match statement
-                self.statement_error("TODO")
+                self.parse_match(location.col)
             },
             Token::ValueName(name) => match self.peek_next() {
                 Some((Token::Equals, _)) => self.parse_assign(),
@@ -109,6 +109,75 @@ impl<'a> Parser<'a> {
             Some((Token::ValueName(s), _)) => Ok(s.clone()),
             _ => Err(self.statement_error("Expected a name")),
         }
+    }
+
+    fn parse_match(&mut self, indent: u32) -> StatementRef {
+        let matched = self.parse_expression();
+        let matchers = match self.parse_match_block(indent) {
+            Ok(m) => m,
+            Err(sref) => return sref,
+        };
+
+        let match_statement = MatchStatement{matched: matched, matchers: matchers};
+        let stmt = Statement::MatchStmt(Box::new(match_statement));
+        self.syntax.add_statement(stmt)
+    }
+
+    fn parse_match_block(&mut self, indent: u32) -> Result<Vec<Matcher>, StatementRef> {
+        if !self.require_next(Token::Colon) {
+            return Err(self.statement_error("expected a colon after the matched expression"));
+        }
+
+        if !self.require_next(Token::Newline) {
+            return Err(self.statement_error("expected a newline after a colon"));
+        }
+
+        let mut matchers = vec![];
+        let mut new_indent = None;
+
+        // TODO: Consider making the handling of blocks generic
+        loop {
+            let (token, location) = match self.peek() {
+                // The file could end inside a match block
+                None => break,
+                Some(tok) => tok,
+            };
+
+            if *token == Token::Newline {
+                // ignore it
+                self.next();
+                continue;
+            }
+
+            // Make sure the indent is valid and the block hasn't ended
+            match new_indent {
+                None => {
+                    if location.col <= indent {
+                        // The block ended with no statements
+                        break;
+                    }
+                    new_indent = Some(location.col);
+                },
+                Some(level) => {
+                    if location.col > level {
+                        let err_stmt = self.statement_error("Matcher indented too far");
+                        return Err(err_stmt);
+                    } else if location.col < level {
+                        // The block has ended
+                        break;
+                    }
+                },
+            }
+
+            let matcher = self.parse_match_arm(new_indent);
+            matchers.push(matcher);
+        }
+
+        Ok(matchers)
+    }
+
+    fn parse_match_arm(&mut self, indent: Option<u32>) -> Matcher {
+        panic!("todo")
     }
 
     fn parse_expr_stmt(&mut self) -> StatementRef {

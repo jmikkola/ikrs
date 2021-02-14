@@ -475,8 +475,8 @@ impl Inspect for ForStatement {
 
 #[derive(Debug)]
 pub struct MatchStatement {
-    matched: ExpressionRef,
-    matchers: Vec<Matcher>,
+    pub matched: ExpressionRef,
+    pub matchers: Vec<Matcher>,
 }
 
 #[cfg(test)]
