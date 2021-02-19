@@ -8,6 +8,7 @@ mod parser;
 use parser::tokenize::tokenize;
 use parser::tokens::Token;
 use parser::location::Location;
+use parser::parser::parse;
 
 fn main() -> io::Result<()> {
     let mut error = false;
@@ -21,7 +22,9 @@ fn main() -> io::Result<()> {
         let tokens = tokenize(contents.as_str());
         if has_unknown(&tokens) {
             error = true;
+            continue;
         }
+        let syntax = parse(&tokens);
     }
 
     if error {
