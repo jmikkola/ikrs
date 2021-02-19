@@ -6,6 +6,6 @@ fn fib(n):
 fn main():
     let i = 1
     while i < 12:
-        print(String(fib(i)))
+        print(to_string(fib(i)))
         print("\n")
         i = i + 1

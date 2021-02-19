@@ -10,5 +10,5 @@ fn main():
         x: 123,
         y: 0.0,
     }
-    print(String(get_x(b1)))
+    print(to_string(get_x(b1)))
     print("\n")

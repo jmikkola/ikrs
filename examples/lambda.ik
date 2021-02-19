@@ -12,7 +12,7 @@ fn println_(s):
     print("\n")
 
 fn putln(i):
-    println_(String(i))
+    println_(to_string(i))
 
 fn main():
     let m = multiples_of(3)

@@ -12,5 +12,5 @@ fn main():
                 factor + // can do funny line wraps
                 1
 
-    print(String(largest))
+    print(to_string(largest))
     print("\n")

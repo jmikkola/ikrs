@@ -17,11 +17,11 @@ fn main():
         },
     }
     let b = foo.xyz
-    // print(String(foo))
+    // print(to_string(foo))
     print("Hello, world\n")
     foo.xyz.x = 10000
     print("an Int: ")
-    print(String(foo.xyz.x + 9))
+    print(to_string(foo.xyz.x + 9))
     //print("\na Float: ")
-    //print(String(foo.xyz.y * 0.6))
+    //print(to_string(foo.xyz.y * 0.6))
     print("\n")

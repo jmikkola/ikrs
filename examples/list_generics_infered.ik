@@ -44,5 +44,5 @@ fn println(s):
 fn main():
     let l1 = prepend(1, prepend(2, singleton(3)))
     let l2 = map(double, l1)
-    println(String(l2))
-    println(String(fold(add, 0, l2)))
+    println(to_string(l2))
+    println(to_string(fold(add, 0, l2)))

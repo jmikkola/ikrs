@@ -16,7 +16,7 @@ fn main():
     color: a,
     value: 123,
   }
-  print(String(a))
+  print(to_string(a))
   print("\n")
-  print(String(c))
+  print(to_string(c))
   print("\n")

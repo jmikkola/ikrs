@@ -9,5 +9,5 @@ fn main():
     coord: {x: 1, y: 2},
     color: "Blue",
   }
-  print(String(b))
+  print(to_string(b))
   print("\n")

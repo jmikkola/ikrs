@@ -2,9 +2,9 @@ fn use_int(a Int) Int:
     return a
 
 fn use_two_types(a fn(Bool) Bool, b fn(String) String):
-    print(String(a(True)))
+    print(to_string(a(True)))
     print("\n")
-    print(String(b("foo")))
+    print(to_string(b("foo")))
     print("\n")
 
 fn more_general(x a) a:

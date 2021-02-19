@@ -9,13 +9,13 @@ type ASTIsh enum:
     ret ASTIsh
 
 fn printEnum(a ASTIsh):
-    print(String(a))
+    print(to_string(a))
 
 fn main():
   let a = TNamed{
     name: "some name",
   }
-  print(String(a))
+  print(to_string(a))
   print("\n")
   printEnum(a)
   print("\n")

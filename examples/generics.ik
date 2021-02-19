@@ -28,10 +28,10 @@ fn main():
         first: 123,
         second: "foo",
     }
-    print(String(p1))
+    print(to_string(p1))
     print("\n")
-    print(String(flip(p1)))
+    print(to_string(flip(p1)))
     print("\n")
     let m2 Maybe<Pair<Int, Int>> = Nothing{}
-    print(String(isJust(m2)))
+    print(to_string(isJust(m2)))
     print("\n")

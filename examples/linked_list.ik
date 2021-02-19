@@ -33,7 +33,7 @@ fn main():
     next: a2,
   }
 
-  print(String(length(a3)))
+  print(to_string(length(a3)))
   print("\n")
-  print(String(a3))
+  print(to_string(a3))
   print("\n")

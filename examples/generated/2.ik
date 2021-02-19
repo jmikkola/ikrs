@@ -1,2 +1,2 @@
 fn main():
-    print(String(10 - 3 - 4))
+    print(to_string(10 - 3 - 4))

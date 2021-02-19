@@ -8,14 +8,14 @@ fn max(a t, b t) t where t: Ord:
 
 
 fn main():
-    print(String(are_same("x", "y")))
+    print(to_string(are_same("x", "y")))
     print("\n")
 
-    print(String(are_same(False, False)))
+    print(to_string(are_same(False, False)))
     print("\n")
 
-    print(String(max(42, 6*7)))
+    print(to_string(max(42, 6*7)))
     print("\n")
 
-    print(String(max(2.78, 3.14)))
+    print(to_string(max(2.78, 3.14)))
     print("\n")

@@ -15,7 +15,7 @@ fn main():
     print(c)
 
     // Numbers can be cast to strings
-    // TODO print(String(b) + " " + String(a))
+    // TODO print(to_string(b) + " " + to_string(a))
 
     print(do_stuff())
 
@@ -41,7 +41,7 @@ fn do_stuff():
 
    let i  = 0
    while i < 10:
-         print(String(i))
+         print(to_string(i))
          i = i + 1
 
    return "foo"
@@ -49,5 +49,5 @@ fn do_stuff():
 // recursive functions are of course allowed
 fn recursive(a, b):
    if b == 0:
-      return String(a)
+      return to_string(a)
    return recursive(b, a % b)

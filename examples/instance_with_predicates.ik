@@ -21,7 +21,7 @@ fn use_instance() ():
     let m = Just{
         value: "foo",
     }
-    print(String(count(m)))
+    print(to_string(count(m)))
 
 fn main():
     print("\n")

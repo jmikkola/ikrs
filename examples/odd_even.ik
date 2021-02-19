@@ -24,5 +24,5 @@ fn main():
   /*
     block comment
   **/
-  print(String(o)) // line comment
+  print(to_string(o)) // line comment
   print("\n")
