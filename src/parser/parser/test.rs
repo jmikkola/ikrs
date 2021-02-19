@@ -293,7 +293,7 @@ fn test_import_decl() {
 fn test_function_decl() {
     let decl = r#"
 fn main():
-  println("Hello, world")    
+  println("Hello, world")
     "#;
 
     assert_parses_decl(decl, "(defn main () (do (expr (call println \"Hello, world\"))))");
@@ -327,4 +327,16 @@ fn save(a Int, b Int):
     "#;
 
     assert_parses_decl(decl, "(defn save (a b) :: (function (Int Int) void) (do (expr (call foo a b))))");
+}
+
+#[test]
+fn test_struct_type_decl() {
+    let decl = r#"
+type Light struct:
+  color Color
+  value Int
+    "#;
+
+    let expected = "(type Light (struct (color Color) (value Int)))";
+    assert_parses_decl(decl, expected);
 }

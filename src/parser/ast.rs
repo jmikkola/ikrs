@@ -376,7 +376,7 @@ impl Inspect for TypeDefinition {
 
 #[derive(Debug)]
 pub struct StructType {
-    fields: Vec<(String, TypeRef)>,
+    pub fields: Vec<(String, TypeRef)>,
 }
 
 #[cfg(test)]
@@ -392,8 +392,9 @@ impl Inspect for StructType {
 impl StructType {
     fn write_inner(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         for (name, t) in self.fields.iter() {
-            write!(f, " {} ", name)?;
+            write!(f, " ({} ", name)?;
             t.inspect(f, s)?;
+            write!(f, ")")?;
         }
         Ok(())
     }

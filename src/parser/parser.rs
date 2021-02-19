@@ -117,7 +117,127 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl(&mut self, indent: u32) -> DeclarationRef {
+        let name = match self.next_token() {
+            Some(Token::TypeName(n)) => n.clone(),
+            _ => {
+                return self.declaration_error("Expected a type name after 'type'");
+            },
+        };
+
+        match self.next_token() {
+            Some(Token::KeywordStruct) =>
+                self.parse_struct_def(name, indent),
+            Some(Token::KeywordEnum) =>
+                self.parse_enum_def(name, indent),
+            Some(Token::KeywordClass) =>
+                self.parse_class_def(name, indent),
+            Some(_) => {
+                let t = self.parse_type();
+                let td = TypeDefinition::Alias(t);
+                let decl = Declaration::TypeDecl(name, Box::new(td));
+                let dref = self.syntax.add_declaration(decl);
+                self.eat_newline_decl(dref)
+            },
+            None => {
+                self.declaration_error("Expected a type definition, found EOF")
+            },
+        }
+    }
+
+    fn parse_struct_def(&mut self, name: String, indent: u32) -> DeclarationRef {
+        let fields = match self.parse_type_fields(indent) {
+            Ok(fs) => fs,
+            Err(dref) => return dref,
+        };
+
+        // Assemble the result
+        let struct_type = StructType{fields: fields};
+        let td = TypeDefinition::Structure(struct_type);
+        let decl = Declaration::TypeDecl(name, Box::new(td));
+        let dref = self.syntax.add_declaration(decl);
+        self.eat_newline_decl(dref)
+    }
+
+    fn parse_enum_def(&mut self, name: String, indent: u32) -> DeclarationRef {
         panic!("TODO")
+    }
+
+    fn parse_class_def(&mut self, name: String, indent: u32) -> DeclarationRef {
+        panic!("TODO")
+    }
+
+    // the fields must be indented more than `indent`.
+    // This includes parsing the : and the \n
+    fn parse_type_fields(&mut self, indent: u32) -> Result<Vec<(String, TypeRef)>, DeclarationRef> {
+        if !self.require_next(Token::Colon) {
+            return Err(self.declaration_error("Expected a colon"));
+        }
+
+        if !self.require_next(Token::Newline) {
+            return Err(self.declaration_error("Expected a newline after a colon"));
+        }
+
+        let mut fields = vec![];
+        let mut new_indent = None;
+
+        loop {
+            let (token, location) = match self.peek() {
+                // The file could end inside a type definition
+                None => break,
+                Some(tok) => tok,
+            };
+
+            if *token == Token::Newline {
+                // Skip blank lines
+                self.next();
+                continue;
+            }
+
+            // Make sure (a) we're still inside this block and (b) it's not some
+            // invalid indent
+            match new_indent {
+                None => {
+                    // This is the first line, so set up the indent
+                    if location.col <= indent {
+                        // The block was empty (or the first line wasn't indented right)
+                        break;
+                    }
+                    new_indent = Some(location.col);
+                },
+                Some(level) => {
+                    if location.col > level {
+                        let err = self.declaration_error("Type field indented too far");
+                        return Err(err);
+                    } else if location.col < level {
+                        // The block has ended
+                        break;
+                    }
+                }
+            }
+
+            // It's at the right indent, continue with parsing
+            let field_name = match self.next_token().unwrap() {
+                Token::ValueName(n) => n.clone(),
+                _ => {
+                    let err = self.declaration_error("Expected a field name");
+                    return Err(err);
+                },
+            };
+
+            let field_type = self.parse_type();
+
+            match self.next_token() {
+                None | Some(Token::Newline) => {},
+                _ => {
+                    let err = self.declaration_error("Expected a newline after a type field");
+                    return Err(err);
+                },
+            }
+
+            fields.push((field_name, field_type))
+        }
+
+        Ok(fields)
     }
 
     // The 'fn' keyword has already been eaten

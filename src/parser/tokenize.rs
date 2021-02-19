@@ -344,6 +344,7 @@ fn name_token(name: String) -> Token {
         "class"    => Token::KeywordClass,
         "else"     => Token::KeywordElse,
         "enum"     => Token::KeywordEnum,
+        "extends"  => Token::KeywordExtends,
         "fn"       => Token::KeywordFn,
         "for"      => Token::KeywordFor,
         "if"       => Token::KeywordIf,
