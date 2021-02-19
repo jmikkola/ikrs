@@ -430,3 +430,22 @@ fn main():
 
     assert_parses_file(file, expected);
 }
+
+#[test]
+fn test_parses_statement_after_enum() {
+    let file = r#"
+type E enum:
+  V:
+    x Int
+
+fn main():
+  return
+"#;
+
+    let expected = vec![
+        "(type E (enum (V (x Int))))",
+        "(defn main () (do (return)))",
+    ];
+
+    assert_parses_file(file, expected);
+}

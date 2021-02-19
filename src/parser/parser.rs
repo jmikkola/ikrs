@@ -247,8 +247,7 @@ impl<'a> Parser<'a> {
         let enum_type = EnumType{variants: variants};
         let td = TypeDefinition::Enum(enum_type);
         let decl = Declaration::TypeDecl(name, Box::new(td));
-        let dref = self.syntax.add_declaration(decl);
-        self.eat_newline_decl(dref)
+        self.syntax.add_declaration(decl)
     }
 
     fn parse_class_def(&mut self, name: String, indent: u32) -> DeclarationRef {
@@ -434,6 +433,20 @@ impl<'a> Parser<'a> {
             // (this will give an incorrect location for the error)
             let dref = self.declaration_error("Not all arguments have types");
             Err(dref)
+        }
+    }
+
+    // Skip to the next newline (or end of file) for better error messages
+    fn skip_to_newline(&mut self) {
+        loop {
+            match self.peek_token() {
+                None | Some(Token::Newline) => {
+                    return;
+                },
+                _ => {
+                    self.next();
+                },
+            }
         }
     }
 
@@ -1259,12 +1272,16 @@ impl<'a> Parser<'a> {
 
     fn declaration_error(&mut self, message: &str) -> DeclarationRef {
         self.add_error(message);
-        self.syntax.add_declaration(Declaration::DeclarationParseError)
+        let dref = self.syntax.add_declaration(Declaration::DeclarationParseError);
+        self.skip_to_newline();
+        dref
     }
 
     fn statement_error(&mut self, message: &str) -> StatementRef {
         self.add_error(message);
-        self.syntax.add_statement(Statement::StatementParseError)
+        let sref = self.syntax.add_statement(Statement::StatementParseError);
+        self.skip_to_newline();
+        sref
     }
 
     fn expression_error(&mut self, message: &str) -> ExpressionRef {
