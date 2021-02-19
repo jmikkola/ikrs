@@ -127,7 +127,7 @@ pub enum Declaration {
 }
 
 #[cfg(test)]
-impl Inspect for Declaration {
+impl Inspect for &Declaration {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Declaration::*;
         match self {

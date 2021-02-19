@@ -25,6 +25,28 @@ fn assert_parses_decl(input: &str, expected: &str) {
     assert_parses(trimmed, expected, true, |parser| parser.parse_declaration(None));
 }
 
+fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
+    let to_trim: &[_] = &[' ', '\n'];
+    let trimmed = input.trim_start_matches(to_trim);
+
+    let tokens = tokenize(input);
+    let mut parser = Parser::new(&tokens);
+
+    parser.parse_file();
+
+    let errors = parser.show_errors();
+    let is_done = parser.is_done();
+    let s = &parser.syntax;
+
+    let inspected: Vec<String> = s.declarations.iter()
+        .map(|d| inspect(d, s).unwrap())
+        .collect();
+
+    assert_eq!(expected_decls, inspected, "{}", errors.join(", "));
+    assert_eq!("", errors.join(", "));
+    assert_eq!(true, is_done, "parser left extra input");
+}
+
 fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
 where F: Fn(&mut Parser) -> I, I: Inspect {
     let tokens = tokenize(input);
@@ -374,4 +396,34 @@ type Lambdas enum:
     let expected = "(type Lambdas (enum (Variable (name String)) \
                     (Abstraction (arg String) (body Lambdas))))";
     assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_parses_file() {
+    let file = r#"
+package main
+
+import fmt
+
+type Coords struct:
+  a Int
+  b Int
+
+fn foo(a):
+  if 1:
+    foo(a)
+
+fn main():
+  println("Hello, world")
+"#;
+
+    let expected = vec![
+        "(package main)",
+        "(import fmt)",
+        "(type Coords (struct (a Int) (b Int)))",
+        "(defn foo (a) (do (if 1 (do (expr (call foo a))))))",
+        "(defn main () (do (expr (call println \"Hello, world\"))))",
+    ];
+
+    assert_parses_file(file, expected);
 }

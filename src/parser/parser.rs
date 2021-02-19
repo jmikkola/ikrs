@@ -6,7 +6,10 @@ use super::location::Location;
 mod test;
 
 pub fn parse<'a>(tokens: &'a Vec<(Token, Location)>) -> Syntax {
-    Parser::new(tokens).parse()
+    let mut parser = Parser::new(tokens);
+    parser.parse_file();
+    // TODO: Move errors into syntax
+    parser.syntax
 }
 
 
@@ -30,9 +33,23 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse(self) -> Syntax {
-        // TODO
-        self.syntax
+    fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    fn parse_file(&mut self) {
+        loop {
+            match self.peek_token() {
+                None => break,
+                Some(Token::Newline) => {
+                    self.next();
+                    continue
+                },
+                _ => {},
+            }
+
+            self.parse_declaration(None);
+        }
     }
 
     fn parse_declaration(&mut self, indent: Option<u32>) -> DeclarationRef {
@@ -162,7 +179,7 @@ impl<'a> Parser<'a> {
         let td = TypeDefinition::Structure(struct_type);
         let decl = Declaration::TypeDecl(name, Box::new(td));
         let dref = self.syntax.add_declaration(decl);
-        self.eat_newline_decl(dref)
+        dref
     }
 
     fn parse_enum_def(&mut self, name: String, indent: u32) -> DeclarationRef {
