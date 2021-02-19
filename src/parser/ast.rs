@@ -611,10 +611,10 @@ impl Inspect for StructPattern {
 
 #[derive(Debug)]
 pub struct FunctionDecl {
-    name: String,
-    arg_names: Vec<String>,
-    fn_type: Option<TypeRef>,
-    body: StatementRef,
+    pub name: String,
+    pub arg_names: Vec<String>,
+    pub fn_type: Option<TypeRef>,
+    pub body: StatementRef,
 }
 
 #[cfg(test)]

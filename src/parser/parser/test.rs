@@ -288,3 +288,43 @@ fn test_import_decl() {
     assert_parses_decl("import foo.bar.baz", "(import foo bar baz)");
     assert_parses_decl("import foo.bar.baz\n", "(import foo bar baz)");
 }
+
+#[test]
+fn test_function_decl() {
+    let decl = r#"
+fn main():
+  println("Hello, world")    
+    "#;
+
+    assert_parses_decl(decl, "(defn main () (do (expr (call println \"Hello, world\"))))");
+}
+
+#[test]
+fn test_function_with_args() {
+    let decl = r#"
+fn add(a, b):
+  return a + b
+    "#;
+
+    assert_parses_decl(decl, "(defn add (a b) (do (return (binary + a b))))");
+}
+
+#[test]
+fn test_function_with_type() {
+    let decl = r#"
+fn add(a Int, b Int) Int:
+  return a + b
+    "#;
+
+    assert_parses_decl(decl, "(defn add (a b) :: (function (Int Int) Int) (do (return (binary + a b))))");
+}
+
+#[test]
+fn test_function_implicit_void_return() {
+    let decl = r#"
+fn save(a Int, b Int):
+   foo(a, b)
+    "#;
+
+    assert_parses_decl(decl, "(defn save (a b) :: (function (Int Int) void) (do (expr (call foo a b))))");
+}

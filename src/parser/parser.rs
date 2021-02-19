@@ -120,8 +120,112 @@ impl<'a> Parser<'a> {
         panic!("TODO")
     }
 
+    // The 'fn' keyword has already been eaten
     fn parse_func_decl(&mut self, indent: u32) -> DeclarationRef {
-        panic!("TODO")
+        let name = match self.next_token() {
+            Some(Token::ValueName(n)) => n.clone(),
+            _ => {
+                return self.declaration_error("Expected the function's name after 'fn'");
+            },
+        };
+
+        let mut arg_names = vec![];
+        let mut arg_types = vec![];
+
+        if !self.require_next(Token::LParen) {
+            return self.declaration_error("Expected a ( after a function's name");
+        }
+
+        loop {
+            match self.peek_token() {
+                None => break,
+                Some(Token::RParen) => break,
+                Some(Token::ValueName(n)) => {
+                    self.next();
+                    arg_names.push(n.clone());
+                },
+                _ => {
+                    return self.declaration_error("Expected an argument name");
+                },
+            }
+
+            match self.peek_token() {
+                None => break,
+                Some(Token::RParen) => break,
+                Some(Token::Comma) => {
+                    arg_types.push(None);
+                },
+                Some(_) => {
+                    arg_types.push(Some(self.parse_type()));
+                },
+            }
+
+            if self.is_next(Token::Comma) {
+                self.next();
+            } else {
+                break;
+            }
+        }
+
+        if !self.require_next(Token::RParen) {
+            return self.declaration_error("Expected a ) closing the function's args");
+        }
+
+        let ret_type = if self.is_next(Token::Colon) {
+            None
+        } else {
+            Some(self.parse_type())
+        };
+
+        let block = self.parse_block(indent);
+
+        let fn_type = match self.assemble_fn_type(arg_types, ret_type) {
+            Ok(t) => t,
+            Err(dref) => return dref,
+        };
+
+        let fd = FunctionDecl{
+            name: name,
+            arg_names: arg_names,
+            fn_type: fn_type,
+            body: block,
+        };
+        let d = Declaration::FunctionDecl(Box::new(fd));
+        self.syntax.add_declaration(d)
+    }
+
+    fn assemble_fn_type(
+        &mut self,
+        arg_types: Vec<Option<TypeRef>>,
+        ret_type: Option<TypeRef>,
+    ) -> Result<Option<TypeRef>, DeclarationRef> {
+        let provided_args: Vec<TypeRef> = arg_types.iter().filter_map(|x| *x).collect();
+
+        if arg_types.len() == 0 {
+            Ok(ret_type.map(|t| self.syntax.add_type(Type::FnType(vec![], t))))
+        } else if provided_args.len() == arg_types.len() {
+            // all arg types were provided
+
+            // When no return type is written but at least one arg is typed,
+            // void is assumed
+            let ret = ret_type.unwrap_or_else(|| self.syntax.add_type(Type::Void));
+            let t = Type::FnType(provided_args, ret);
+            let tref = self.syntax.add_type(t);
+            Ok(Some(tref))
+        } else if provided_args.len() == 0 {
+            // no arg types provided (but there are more than 0 args)
+            if ret_type.is_some() {
+                let dref = self.declaration_error("The return value is typed, but not the arguments");
+                Err(dref)
+            } else {
+                Ok(None)
+            }
+        } else {
+            // some args have types, some don't
+            // (this will give an incorrect location for the error)
+            let dref = self.declaration_error("Not all arguments have types");
+            Err(dref)
+        }
     }
 
     fn eat_newline_decl(&mut self, result: DeclarationRef) -> DeclarationRef {
@@ -565,6 +669,10 @@ impl<'a> Parser<'a> {
     }
 
     // returns the block statement
+    //
+    // Requires that the statements be indented _more_ than `indent`.
+    //
+    // This includes eating the : and the \n
     fn parse_block(&mut self, indent: u32) -> StatementRef {
         if !self.require_next(Token::Colon) {
             return self.statement_error("Expected a block to start with a colon");
