@@ -109,17 +109,113 @@ impl<'a> Parser<'a> {
         };
 
         match tok {
-            Token::TypeName(name) => {
-                // TODO: Handle generics
-                // TODO: Handle function types
-                let t = Type::TypeName(name.clone());
-                self.syntax.add_type(t)
+            // TODO: Type variables?
+            Token::LParen => {
+                if self.is_next(Token::RParen) {
+                    self.next();
+                    self.syntax.add_type(Type::Void)
+                } else {
+                    // TODO: handle tuple types
+                    self.type_error("unexpected token after a paren")
+                }
             },
-            // TODO: Handle tuples
+            Token::KeywordFn => {
+                self.parse_fn_type()
+            },
+            Token::TypeName(name) => {
+                if self.is_next(Token::Less) {
+                    self.parse_generic(name.clone())
+                } else {
+                    let t = Type::TypeName(name.clone());
+                    self.syntax.add_type(t)
+                }
+            },
             _ => {
                 self.type_error("Bad type")
             },
         }
+    }
+
+    // Parse e.g. `Either<A, B>`
+    fn parse_generic(&mut self, name: String) -> TypeRef {
+        if !self.require_next(Token::Less) {
+            return self.type_error("Expected a < in a generic type");
+        }
+
+        let mut params = vec![];
+        loop {
+            match self.peek_token() {
+                None => break,
+                Some(Token::Greater) => break,
+                _ => {},
+            }
+
+            let param = self.parse_type();
+            params.push(param);
+
+            if self.is_next(Token::Comma) {
+                self.next();
+            } else {
+                break;
+            }
+        }
+
+        if !self.require_next(Token::Greater) {
+            return self.type_error("Expected a > in a generic type");
+        }
+
+        let t = Type::Generic(name, params);
+        self.syntax.add_type(t)
+    }
+
+    // Parse function types, like `fn()`, `fn(Int) ()`, `fn(Int, String) Bool`.
+    // The `fn` keyword has already been consumed
+    fn parse_fn_type(&mut self) -> TypeRef {
+        if !self.require_next(Token::LParen) {
+            return self.type_error("Expected a ( after fn in a type");
+        }
+
+        let mut args = vec![];
+        loop {
+            match self.peek_token() {
+                None => break,
+                Some(Token::RParen) => break,
+                _ => {},
+            }
+
+            let arg = self.parse_type();
+            args.push(arg);
+
+            if self.is_next(Token::Comma) {
+                self.next();
+            } else {
+                break;
+            }
+        }
+
+        if !self.require_next(Token::RParen) {
+            return self.type_error("Unclosed paren in a function type");
+        }
+
+        // Is a return type specified?
+        let has_return = match self.peek_token() {
+            Some(t) => match t {
+                Token::KeywordFn => true,
+                Token::LParen => true,
+                Token::TypeName(_) => true,
+                _ => false,
+            },
+            _ => false,
+        };
+
+        let ret = if has_return {
+            self.parse_type()
+        } else {
+            self.syntax.add_type(Type::Void)
+        };
+
+        let t = Type::FnType(args, ret);
+        self.syntax.add_type(t)
     }
 
     fn parse_statement(&mut self, indent: Option<u32>) -> StatementRef {
@@ -772,6 +868,10 @@ impl<'a> Parser<'a> {
 
     fn peek(&self) -> Option<&'a (Token, Location)> {
         self.tokens.get(self.index)
+    }
+
+    fn peek_token(&self) -> Option<&'a Token> {
+        self.peek().map(|(t, _)| t)
     }
 
     fn peek_next(&self) -> Option<&'a (Token, Location)> {

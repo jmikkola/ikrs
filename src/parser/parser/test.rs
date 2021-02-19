@@ -250,7 +250,7 @@ fn test_simple_type() {
 fn test_type_with_generics() {
     assert_parses_type("Foo<>", "(generic Foo)");
     assert_parses_type("Foo<Bar,>", "(generic Foo Bar)");
-    assert_parses_type("Result<Error, Option<Int>>", "(generic Result Error (Generic Option Int))");
+    assert_parses_type("Result<Error, Option<Int>>", "(generic Result Error (generic Option Int))");
 }
 
 #[test]
@@ -261,7 +261,9 @@ fn test_void_type() {
 #[test]
 fn test_function_type() {
     assert_parses_type("fn() ()", "(function () void)");
+    assert_parses_type("fn(Int)", "(function (Int) void)");
     assert_parses_type("fn(Int) Bool", "(function (Int) Bool)");
+    assert_parses_type("fn(A, B, C,) Bool", "(function (A B C) Bool)");
 }
 
 // TODO: Type variables being lowercase might make the syntax ambiguous is this

@@ -273,6 +273,7 @@ impl Inspect for Expression {
 pub enum Type {
     TypeParseError,
 
+    Void,
     TypeName(String),
     Generic(String, Vec<TypeRef>),
     FnType(Vec<TypeRef>, TypeRef),
@@ -284,6 +285,7 @@ impl Inspect for Type {
         use Type::*;
         match self {
             TypeParseError => write!(f, "type-err"),
+            Void => write!(f, "void"),
             TypeName(name) => write!(f, "{}", name),
             Generic(name, refs) => {
                 write!(f, "(generic {}", name)?;
@@ -295,8 +297,12 @@ impl Inspect for Type {
             },
             FnType(arg_types, ret_type) => {
                 write!(f, "(function (")?;
+                let mut wrote_first = false;
                 for t in arg_types {
-                    write!(f, " ")?;
+                    if wrote_first {
+                        write!(f, " ")?;
+                    }
+                    wrote_first = true;
                     t.inspect(f, s)?;
                 }
                 write!(f, ") ")?;
