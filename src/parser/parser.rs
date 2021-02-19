@@ -458,7 +458,6 @@ impl<'a> Parser<'a> {
         };
 
         match tok {
-            // TODO: Type variables?
             Token::LParen => {
                 if self.is_next(Token::RParen) {
                     self.next();
@@ -470,6 +469,10 @@ impl<'a> Parser<'a> {
             },
             Token::KeywordFn => {
                 self.parse_fn_type()
+            },
+            Token::ValueName(name) => {
+                let t = Type::TypeVar(name.clone());
+                self.syntax.add_type(t)
             },
             Token::TypeName(name) => {
                 if self.is_next(Token::Less) {

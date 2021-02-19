@@ -305,6 +305,7 @@ pub enum Type {
 
     Void,
     TypeName(String),
+    TypeVar(String),
     Generic(String, Vec<TypeRef>),
     FnType(Vec<TypeRef>, TypeRef),
 }
@@ -317,6 +318,7 @@ impl Inspect for Type {
             TypeParseError => write!(f, "type-err"),
             Void => write!(f, "void"),
             TypeName(name) => write!(f, "{}", name),
+            TypeVar(name) => write!(f, "(tvar {})", name),
             Generic(name, refs) => {
                 write!(f, "(generic {}", name)?;
                 for t in refs {

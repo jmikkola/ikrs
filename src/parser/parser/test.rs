@@ -279,6 +279,7 @@ fn test_simple_type() {
 fn test_type_with_generics() {
     assert_parses_type("Foo<>", "(generic Foo)");
     assert_parses_type("Foo<Bar,>", "(generic Foo Bar)");
+    assert_parses_type("Foo<bar,>", "(generic Foo (tvar bar))");
     assert_parses_type("Result<Error, Option<Int>>", "(generic Result Error (generic Option Int))");
 }
 
@@ -288,16 +289,17 @@ fn test_void_type() {
 }
 
 #[test]
+fn test_type_variable() {
+    assert_parses_type("a", "(tvar a)");
+}
+
+#[test]
 fn test_function_type() {
     assert_parses_type("fn() ()", "(function () void)");
     assert_parses_type("fn(Int)", "(function (Int) void)");
     assert_parses_type("fn(Int) Bool", "(function (Int) Bool)");
     assert_parses_type("fn(A, B, C,) Bool", "(function (A B C) Bool)");
 }
-
-// TODO: Type variables being lowercase might make the syntax ambiguous is this
-// a tuple of two boolean expressions, or a type followed by a call?
-// (a<b,c>(d))
 
 #[test]
 fn test_package_decl() {
