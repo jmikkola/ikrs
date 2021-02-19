@@ -347,8 +347,8 @@ impl Inspect for Type {
 
 #[derive(Debug, PartialEq)]
 pub struct StructExpression {
-    struct_name: String,
-    fields: Vec<(String, ExpressionRef)>,
+    pub struct_name: String,
+    pub fields: Vec<(String, ExpressionRef)>,
 }
 
 #[cfg(test)]
@@ -356,8 +356,9 @@ impl Inspect for StructExpression {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         write!(f, "(make-struct {}", self.struct_name)?;
         for (field_name, expr) in self.fields.iter() {
-            write!(f, " {} ", field_name)?;
+            write!(f, " ({} ", field_name)?;
             expr.inspect(f, s)?;
+            write!(f, ")")?;
         }
         write!(f, ")")
     }

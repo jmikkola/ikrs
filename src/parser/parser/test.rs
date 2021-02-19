@@ -42,8 +42,11 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
         .map(|d| inspect(d, s).unwrap())
         .collect();
 
-    assert_eq!(expected_decls, inspected, "{}", errors.join(", "));
-    assert_eq!("", errors.join(", "));
+    assert_eq!(
+        expected_decls, inspected,
+        "input: {}, errors: {}", input, errors.join(", ")
+    );
+    assert_eq!("", errors.join(", "), "{}", input);
     assert_eq!(true, is_done, "parser left extra input");
 }
 
@@ -56,8 +59,11 @@ where F: Fn(&mut Parser) -> I, I: Inspect {
     let s = parser.syntax;
     let errors = &s.errors;
     let inspected = inspect(inspectable, &s).unwrap();
-    assert_eq!(expected, inspected.as_str(), "{}", errors.join(", "));
-    assert_eq!("", errors.join(", "));
+    assert_eq!(
+        expected, inspected.as_str(),
+        "input: {}, errors: {}", input, errors.join(", "),
+    );
+    assert_eq!("", errors.join(", "), "{}", input);
     if require_done {
         assert_eq!(true, is_done, "parser left extra input");
     }
@@ -77,6 +83,16 @@ fn test_int() {
 #[test]
 fn test_variable() {
     assert_parses_expr("x", "x");
+}
+
+#[test]
+fn test_structure_literal() {
+    assert_parses_expr("None", "(make-struct None)");
+    assert_parses_expr("None{}", "(make-struct None)");
+
+    assert_parses_expr("Some{val: 123}", "(make-struct Some (val 123))");
+    assert_parses_expr("Some{val: 123,}", "(make-struct Some (val 123))");
+    assert_parses_expr("Some{\n\n  val: 123\n}", "(make-struct Some (val 123))");
 }
 
 #[test]

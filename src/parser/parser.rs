@@ -1215,8 +1215,58 @@ impl<'a> Parser<'a> {
                 let expr = Expression::Variable(s.clone());
                 self.syntax.add_expression(expr)
             },
+            Token::TypeName(s) =>
+                self.parse_struct_expression(s.clone()),
             _ => self.expression_error("Unexpected token for a value"),
         }
+    }
+
+    fn parse_struct_expression(&mut self, name: String) -> ExpressionRef {
+        let mut fields = vec![];
+        if self.is_next(Token::LBrace) {
+            self.next();
+
+            // Read field values
+            loop {
+                let field_name = match self.peek_token() {
+                    // Skip newlines inside the expression
+                    Some(Token::Newline) => { self.next(); continue },
+                    Some(Token::ValueName(n)) => { self.next(); n.clone() },
+                    _ => break, // includes RBrace
+                };
+
+                if !self.require_next(Token::Colon) {
+                    return self.expression_error("Expected a : after the name of a structure field");
+                }
+
+                while self.is_next(Token::Newline) {
+                    self.next();
+                }
+
+                let value = self.parse_expression();
+                fields.push((field_name, value));
+
+                match self.peek_token() {
+                    Some(Token::Comma) => { self.next(); },
+                    _ => break,
+                }
+            }
+
+            while self.is_next(Token::Newline) {
+                self.next();
+            }
+
+            if !self.require_next(Token::RBrace) {
+                return self.expression_error("Expected a } after a structure literal");
+            }
+        }
+
+        let struct_expr = StructExpression{
+            struct_name: name,
+            fields: fields,
+        };
+        let expr = Expression::StructCreate(Box::new(struct_expr));
+        self.syntax.add_expression(expr)
     }
 
     fn next(&mut self) -> Option<&'a (Token, Location)> {
@@ -1231,6 +1281,7 @@ impl<'a> Parser<'a> {
         self.next().map(|(t, _)| t)
     }
 
+    #[cfg(test)]
     fn is_done(&self) -> bool {
         self.peek().is_none()
     }
