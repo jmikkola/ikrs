@@ -25,6 +25,13 @@ fn main() -> io::Result<()> {
             continue;
         }
         let syntax = parse(&tokens);
+        if syntax.has_errors() {
+            error = true;
+            for e in syntax.errors.iter() {
+                println!("{}", e);
+            }
+            continue;
+        }
     }
 
     if error {

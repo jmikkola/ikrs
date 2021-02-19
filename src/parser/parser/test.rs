@@ -34,9 +34,9 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
 
     parser.parse_file();
 
-    let errors = parser.show_errors();
     let is_done = parser.is_done();
     let s = &parser.syntax;
+    let errors = &s.errors;
 
     let inspected: Vec<String> = s.declarations.iter()
         .map(|d| inspect(d, s).unwrap())
@@ -52,11 +52,12 @@ where F: Fn(&mut Parser) -> I, I: Inspect {
     let tokens = tokenize(input);
     let mut parser = Parser::new(&tokens);
     let inspectable = f(&mut parser);
-    let errors = parser.show_errors();
     let is_done = parser.is_done();
     let s = parser.syntax;
+    let errors = &s.errors;
     let inspected = inspect(inspectable, &s).unwrap();
     assert_eq!(expected, inspected.as_str(), "{}", errors.join(", "));
+    assert_eq!("", errors.join(", "));
     if require_done {
         assert_eq!(true, is_done, "parser left extra input");
     }

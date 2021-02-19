@@ -12,15 +12,10 @@ pub fn parse<'a>(tokens: &'a Vec<(Token, Location)>) -> Syntax {
     parser.syntax
 }
 
-
 struct Parser<'a> {
     tokens: &'a Vec<(Token, Location)>,
     index: usize,
     syntax: Syntax,
-
-    // TODO: Find a better format for errors
-    // (index, error message)
-    errors: Vec<(usize, String)>,
 }
 
 impl<'a> Parser<'a> {
@@ -29,12 +24,7 @@ impl<'a> Parser<'a> {
             tokens: tokens,
             index: 0,
             syntax: Syntax::new(),
-            errors: Vec::new(),
         }
-    }
-
-    fn has_errors(&self) -> bool {
-        !self.errors.is_empty()
     }
 
     fn parse_file(&mut self) {
@@ -1256,7 +1246,7 @@ impl<'a> Parser<'a> {
     }
 
     fn add_error(&mut self, message: &str) {
-        self.errors.push((self.index, message.to_string()));
+        self.syntax.add_error(self.show_error(self.index, message));
     }
 
     fn type_error(&mut self, message: &str) -> TypeRef {
@@ -1289,7 +1279,7 @@ impl<'a> Parser<'a> {
             .join(" ")
     }
 
-    fn show_error(&self, mut index: usize, message: &String) -> String {
+    fn show_error(&self, mut index: usize, message: &str) -> String {
         index = index.min(self.tokens.len() - 1);
         let location = if self.tokens.is_empty() {
             "start".to_string()
@@ -1300,9 +1290,5 @@ impl<'a> Parser<'a> {
             "error: {} at around {}. Tokens: {}",
             message, location, self.preview(index)
         )
-    }
-
-    fn show_errors(&self) -> Vec<String> {
-        self.errors.iter().map(|(idx, message)| self.show_error(*idx, message)).collect()
     }
 }

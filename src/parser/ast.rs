@@ -1,14 +1,7 @@
 #[cfg(test)]
 use std::fmt;
 
-// Syntax contains the results of parsing one file
-#[derive(Debug)]
-pub struct Syntax {
-    pub declarations: Vec<Declaration>,
-    pub statements: Vec<Statement>,
-    pub expressions: Vec<Expression>,
-    pub types: Vec<Type>,
-}
+use super::location::Location;
 
 // Index types
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -65,6 +58,17 @@ impl Inspect for TypeRef {
     }
 }
 
+// Syntax contains the results of parsing one file
+#[derive(Debug)]
+pub struct Syntax {
+    pub declarations: Vec<Declaration>,
+    pub statements: Vec<Statement>,
+    pub expressions: Vec<Expression>,
+    pub types: Vec<Type>,
+
+    pub errors: Vec<String>,
+}
+
 impl Syntax {
     pub fn new() -> Self {
         Syntax{
@@ -72,6 +76,7 @@ impl Syntax {
             statements: Vec::new(),
             expressions: Vec::new(),
             types: Vec::new(),
+            errors: Vec::new(),
         }
     }
 
@@ -89,6 +94,14 @@ impl Syntax {
 
     pub fn get_type(&self, TypeRef(r): TypeRef) -> &Type {
         &self.types[r]
+    }
+
+    pub fn add_error(&mut self, message: String) {
+        self.errors.push(message);
+    }
+
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
     }
 
     pub fn add_expression(&mut self, expr: Expression) -> ExpressionRef {
