@@ -347,3 +347,31 @@ fn test_type_alias_decl() {
     let expected = "(type Size alias Int)";
     assert_parses_decl(decl, expected);
 }
+
+#[test]
+fn test_simple_enum() {
+    let decl = r#"
+type Color enum:
+  Red
+  Blue
+  Green
+"#;
+    let expected = "(type Color (enum (Red) (Blue) (Green)))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_enum_with_fields() {
+    let decl = r#"
+type Lambdas enum:
+  Variable:
+    name String
+  Abstraction:
+    arg String
+    body Lambdas
+"#;
+
+    let expected = "(type Lambdas (enum (Variable (name String)) \
+                    (Abstraction (arg String) (body Lambdas))))";
+    assert_parses_decl(decl, expected);
+}

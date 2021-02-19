@@ -166,7 +166,82 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_enum_def(&mut self, name: String, indent: u32) -> DeclarationRef {
-        panic!("TODO")
+        if !self.require_next(Token::Colon) {
+            return self.declaration_error("Expected a colon");
+        }
+
+        if !self.require_next(Token::Newline) {
+            return self.declaration_error("Expected a newline after a colon");
+        }
+
+        let mut variants = vec![];
+        let mut new_indent = None;
+
+        // Parse the variants
+        loop {
+            let (token, location) = match self.peek() {
+                // The file could end inside an enum definition
+                None => break,
+                Some(tok) => tok,
+            };
+
+            if *token == Token::Newline {
+                // Skip blank lines
+                self.next();
+                continue;
+            }
+
+            // Make sure (a) we're still inside this block and (b) it's not some
+            // invalid indent
+            match new_indent {
+                None => {
+                    // This is the first line, so set up the indent
+                    if location.col <= indent {
+                        // The block was empty (or the first line wasn't indented right)
+                        break;
+                    }
+                    new_indent = Some(location.col);
+                },
+                Some(level) => {
+                    if location.col > level {
+                        return self.declaration_error("Enum variant indented too far");
+                    } else if location.col < level {
+                        // The block has ended
+                        break;
+                    }
+                }
+            }
+
+            let v_name = match self.next_token() {
+                Some(Token::TypeName(n)) => n.clone(),
+                _ => return self.declaration_error("Expected a type name"),
+            };
+
+            let fields = match self.peek_token() {
+                None => vec![],
+                Some(Token::Newline) => {
+                    self.next();
+                    vec![]
+                },
+                Some(Token::Colon) => match self.parse_type_fields(new_indent.unwrap()) {
+                    Ok(fs) => fs,
+                    Err(dref) => return dref,
+                },
+                _ =>
+                    return self.declaration_error("Expected a newline or colon after enum variant"),
+            };
+            let content = StructType{fields: fields};
+
+            let variant = EnumVariant{name: v_name, content: content};
+            variants.push(variant);
+        }
+
+        // Assemble the result
+        let enum_type = EnumType{variants: variants};
+        let td = TypeDefinition::Enum(enum_type);
+        let decl = Declaration::TypeDecl(name, Box::new(td));
+        let dref = self.syntax.add_declaration(decl);
+        self.eat_newline_decl(dref)
     }
 
     fn parse_class_def(&mut self, name: String, indent: u32) -> DeclarationRef {

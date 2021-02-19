@@ -402,7 +402,7 @@ impl StructType {
 
 #[derive(Debug)]
 pub struct EnumType {
-    variants: Vec<EnumVariant>,
+    pub variants: Vec<EnumVariant>,
 }
 
 #[cfg(test)]
@@ -419,14 +419,14 @@ impl Inspect for EnumType {
 
 #[derive(Debug)]
 pub struct EnumVariant {
-    name: String,
-    content: StructType,
+    pub name: String,
+    pub content: StructType,
 }
 
 #[cfg(test)]
 impl Inspect for EnumVariant {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        write!(f, "(variant {}", self.name)?;
+        write!(f, "({}", self.name)?;
         self.content.write_inner(f, s)?;
         write!(f, ")")
     }
