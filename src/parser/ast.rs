@@ -38,6 +38,13 @@ pub trait Inspect {
 }
 
 #[cfg(test)]
+impl Inspect for DeclarationRef {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        s.get_declaration(*self).inspect(f, s)
+    }
+}
+
+#[cfg(test)]
 impl Inspect for ExpressionRef {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         s.get_expression(*self).inspect(f, s)
@@ -74,6 +81,10 @@ impl Syntax {
 
     pub fn get_statement(&self, StatementRef(r): StatementRef) -> &Statement {
         &self.statements[r]
+    }
+
+    pub fn get_declaration(&self, DeclarationRef(r): DeclarationRef) -> &Declaration {
+        &self.declarations[r]
     }
 
     pub fn get_type(&self, TypeRef(r): TypeRef) -> &Type {

@@ -19,6 +19,12 @@ fn assert_parses_stmt(input: &str, expected: &str) {
     assert_parses(trimmed, expected, true, |parser| parser.parse_statement(None));
 }
 
+fn assert_parses_decl(input: &str, expected: &str) {
+    let to_trim: &[_] = &[' ', '\n'];
+    let trimmed = input.trim_start_matches(to_trim);
+    assert_parses(trimmed, expected, true, |parser| parser.parse_declaration(None));
+}
+
 fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
 where F: Fn(&mut Parser) -> I, I: Inspect {
     let tokens = tokenize(input);
@@ -269,3 +275,8 @@ fn test_function_type() {
 // TODO: Type variables being lowercase might make the syntax ambiguous is this
 // a tuple of two boolean expressions, or a type followed by a call?
 // (a<b,c>(d))
+
+#[test]
+fn test_package_decl() {
+    assert_parses_decl("package main", "(package main)");
+}

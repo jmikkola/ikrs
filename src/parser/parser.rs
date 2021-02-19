@@ -73,7 +73,15 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_package(&mut self) -> DeclarationRef {
-        panic!("TODO")
+        match self.next_token() {
+            Some(Token::ValueName(name)) => {
+                let d = Declaration::PackageDecl(name.clone());
+                self.syntax.add_declaration(d)
+            },
+            _ => {
+                self.declaration_error("expected a name after 'package'")
+            },
+        }
     }
 
     fn parse_import(&mut self) -> DeclarationRef {
