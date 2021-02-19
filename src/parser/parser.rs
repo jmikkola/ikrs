@@ -117,6 +117,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl(&mut self, indent: u32) -> DeclarationRef {
+        // TODO: Take generics here
         let name = match self.next_token() {
             Some(Token::TypeName(n)) => n.clone(),
             _ => {
@@ -124,13 +125,19 @@ impl<'a> Parser<'a> {
             },
         };
 
-        match self.next_token() {
-            Some(Token::KeywordStruct) =>
-                self.parse_struct_def(name, indent),
-            Some(Token::KeywordEnum) =>
-                self.parse_enum_def(name, indent),
-            Some(Token::KeywordClass) =>
-                self.parse_class_def(name, indent),
+        match self.peek_token() {
+            Some(Token::KeywordStruct) => {
+                self.next();
+                self.parse_struct_def(name, indent)
+            },
+            Some(Token::KeywordEnum) => {
+                self.next();
+                self.parse_enum_def(name, indent)
+            },
+            Some(Token::KeywordClass) => {
+                self.next();
+                self.parse_class_def(name, indent)
+            },
             Some(_) => {
                 let t = self.parse_type();
                 let td = TypeDefinition::Alias(t);

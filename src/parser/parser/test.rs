@@ -340,3 +340,10 @@ type Light struct:
     let expected = "(type Light (struct (color Color) (value Int)))";
     assert_parses_decl(decl, expected);
 }
+
+#[test]
+fn test_type_alias_decl() {
+    let decl = "type Size Int";
+    let expected = "(type Size alias Int)";
+    assert_parses_decl(decl, expected);
+}
