@@ -170,7 +170,7 @@ pub enum Statement {
     Return,
     ReturnExpr(ExpressionRef),
     ExprStmt(ExpressionRef),
-    LetStmt(String, ExpressionRef),
+    LetStmt(String, Option<TypeRef>, ExpressionRef),
     AssignStmt(String, ExpressionRef),
     Block(Vec<StatementRef>),
 
@@ -199,8 +199,13 @@ impl Inspect for Statement {
                 expr.inspect(f, s)?;
                 write!(f, ")")
             },
-            LetStmt(var, expr) => {
+            LetStmt(var, tref, expr) => {
                 write!(f, "(let {} ",  var)?;
+                if let Some(t) = tref {
+                    write!(f, ":: ")?;
+                    t.inspect(f, s)?;
+                    write!(f, " ")?;
+                }
                 expr.inspect(f, s)?;
                 write!(f, ")")
             },

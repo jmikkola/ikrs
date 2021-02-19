@@ -187,6 +187,11 @@ fn test_let_statement() {
 }
 
 #[test]
+fn test_typed_let() {
+    assert_parses_stmt("let a Int = 1", "(let a :: Int 1)");
+}
+
+#[test]
 fn test_if_without_else() {
     let stmt = "if 1:\n  return\n";
     assert_parses_stmt(stmt, "(if 1 (do (return)))");

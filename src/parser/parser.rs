@@ -562,18 +562,7 @@ impl<'a> Parser<'a> {
             return self.type_error("Unclosed paren in a function type");
         }
 
-        // Is a return type specified?
-        let has_return = match self.peek_token() {
-            Some(t) => match t {
-                Token::KeywordFn => true,
-                Token::LParen => true,
-                Token::TypeName(_) => true,
-                _ => false,
-            },
-            _ => false,
-        };
-
-        let ret = if has_return {
+        let ret = if self.starting_type() {
             self.parse_type()
         } else {
             self.syntax.add_type(Type::Void)
@@ -581,6 +570,20 @@ impl<'a> Parser<'a> {
 
         let t = Type::FnType(args, ret);
         self.syntax.add_type(t)
+    }
+
+    // Is a type about to start?
+    fn starting_type(&self) -> bool {
+        match self.peek_token() {
+            Some(t) => match t {
+                Token::KeywordFn => true,
+                Token::LParen => true,
+                Token::TypeName(_) => true,
+                Token::ValueName(_) => true,
+                _ => false,
+            },
+            _ => false,
+        }
     }
 
     fn parse_statement(&mut self, indent: Option<u32>) -> StatementRef {
@@ -980,12 +983,18 @@ impl<'a> Parser<'a> {
             },
         };
 
+        let mut tref = None;
+
+        if self.starting_type() {
+            tref = Some(self.parse_type());
+        }
+
         if !self.require_next(Token::Equals) {
             return self.statement_error("Expected an = after let <name>");
         }
 
         let expr = self.parse_expression();
-        let stmt = Statement::LetStmt(name, expr);
+        let stmt = Statement::LetStmt(name, tref, expr);
         self.syntax.add_statement(stmt)
     }
 
