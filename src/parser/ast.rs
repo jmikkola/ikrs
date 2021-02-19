@@ -121,7 +121,7 @@ pub enum Declaration {
     DeclarationParseError,
 
     PackageDecl(String),
-    ImportDecl(String),
+    ImportDecl(Vec<String>),
     TypeDecl(String, Box<TypeDefinition>),
     FunctionDecl(Box<FunctionDecl>),
 }
@@ -133,7 +133,13 @@ impl Inspect for Declaration {
         match self {
             DeclarationParseError => write!(f, "(decl-error)"),
             PackageDecl(name) => write!(f, "(package {})", name),
-            ImportDecl(name) => write!(f, "(import {})", name),
+            ImportDecl(names) => {
+                write!(f, "(import")?;
+                for name in names.iter() {
+                    write!(f, " {}", name)?;
+                }
+                write!(f, ")")
+            },
             TypeDecl(name, tdef) => {
                 write!(f, "(type {} ", name)?;
                 tdef.inspect(f, s)?;

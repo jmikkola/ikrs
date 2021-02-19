@@ -279,4 +279,12 @@ fn test_function_type() {
 #[test]
 fn test_package_decl() {
     assert_parses_decl("package main", "(package main)");
+    assert_parses_decl("package main\n", "(package main)");
+}
+
+#[test]
+fn test_import_decl() {
+    assert_parses_decl("import foo", "(import foo)");
+    assert_parses_decl("import foo.bar.baz", "(import foo bar baz)");
+    assert_parses_decl("import foo.bar.baz\n", "(import foo bar baz)");
 }

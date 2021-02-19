@@ -85,7 +85,35 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_import(&mut self) -> DeclarationRef {
-        panic!("TODO")
+        let mut names = vec![];
+
+        match self.next_token() {
+            Some(Token::ValueName(name)) => {
+                names.push(name.clone());
+            },
+            _ => {
+                return self.declaration_error("expected a name after 'import'");
+            },
+        }
+
+        loop {
+            if !self.is_next(Token::Dot) {
+                break;
+            }
+            self.next();
+
+            match self.next_token() {
+                Some(Token::ValueName(name)) => {
+                    names.push(name.clone());
+                },
+                _ => {
+                    return self.declaration_error("expected a name after 'import'");
+                },
+            }
+        }
+
+        let d = Declaration::ImportDecl(names);
+        self.syntax.add_declaration(d)
     }
 
     fn parse_type_decl(&mut self, indent: u32) -> DeclarationRef {
