@@ -241,6 +241,16 @@ fn test_assignment() {
 }
 
 #[test]
+fn test_field_assignment() {
+    assert_parses_stmt("foo.bar = 5", "(assign (access foo bar) 5)");
+}
+
+#[test]
+fn test_offset_assignment() {
+    assert_parses_stmt("arr[0] = 5", "(assign (offset arr 0) 5)");
+}
+
+#[test]
 fn test_expression_statements() {
     assert_parses_stmt("x", "(expr x)");
     assert_parses_stmt("foo()", "(expr (call foo))");

@@ -626,11 +626,18 @@ impl<'a> Parser<'a> {
                 self.next();
                 self.parse_match(location.col)
             },
-            Token::ValueName(name) => match self.peek_next() {
-                Some((Token::Equals, _)) => self.parse_assign(),
-                _ => self.parse_expr_stmt(),
+            _ => {
+                let expr = self.parse_expression();
+                if self.is_next(Token::Equals) {
+                    self.next();
+                    let value = self.parse_expression();
+                    let stmt = self.syntax.add_statement(Statement::AssignStmt(expr, value));
+                    self.eat_trailing_newline(stmt)
+                } else {
+                    let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
+                    self.eat_trailing_newline(stmt)
+                }
             },
-            _ => self.parse_expr_stmt(),
         }
     }
 
@@ -843,12 +850,6 @@ impl<'a> Parser<'a> {
         Pattern::Tuple(patterns)
     }
 
-    fn parse_expr_stmt(&mut self) -> StatementRef {
-        let expr = self.parse_expression();
-        let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
-        self.eat_trailing_newline(stmt)
-    }
-
     fn parse_for(&mut self, indent: u32) -> StatementRef {
         let variable = match self.expect_name() {
             Ok(n) => n,
@@ -993,24 +994,6 @@ impl<'a> Parser<'a> {
         let stmt = Statement::LetStmt(name, tref, expr);
         self.syntax.add_statement(stmt)
     }
-
-    fn parse_assign(&mut self) -> StatementRef {
-        let name = match self.next() {
-            Some((Token::ValueName(n), _)) => n.clone(),
-            _ => {
-                return self.statement_error("Expected a name for an assignment");
-            },
-        };
-
-        if !self.require_next(Token::Equals) {
-            return self.statement_error("Expected an = after let <name>");
-        }
-
-        let expr = self.parse_expression();
-        let stmt = Statement::AssignStmt(name, expr);
-        self.syntax.add_statement(stmt)
-    }
-
 
     // Parse binary operators (e.g. 1 + 2 - 3)
     // TODO: Handle the operators ^ & | ** << >>

@@ -1,8 +1,6 @@
 #[cfg(test)]
 use std::fmt;
 
-use super::location::Location;
-
 // Index types
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeclarationRef(usize);
@@ -173,7 +171,7 @@ pub enum Statement {
     ReturnExpr(ExpressionRef),
     ExprStmt(ExpressionRef),
     LetStmt(String, Option<TypeRef>, ExpressionRef),
-    AssignStmt(String, ExpressionRef),
+    AssignStmt(ExpressionRef, ExpressionRef),
     Block(Vec<StatementRef>),
 
     IfStmt(Box<IfStatement>),
@@ -211,8 +209,10 @@ impl Inspect for Statement {
                 expr.inspect(f, s)?;
                 write!(f, ")")
             },
-            AssignStmt(var, expr) => {
-                write!(f, "(assign {} ",  var)?;
+            AssignStmt(asignee, expr) => {
+                write!(f, "(assign ")?;
+                asignee.inspect(f, s)?;
+                write!(f, " ")?;
                 expr.inspect(f, s)?;
                 write!(f, ")")
             },
