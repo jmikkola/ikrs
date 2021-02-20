@@ -124,31 +124,27 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl(&mut self, indent: u32) -> DeclarationRef {
-        // TODO: Take generics here
-        let name = match self.next_token() {
-            Some(Token::TypeName(n)) => n.clone(),
-            _ => {
-                return self.declaration_error("Expected a type name after 'type'");
-            },
-        };
+        // Parse any kind of type as the declared type, and let the next pass
+        // deal with defining the subset that is valid.
+        let defined = self.parse_type();
 
         match self.peek_token() {
             Some(Token::KeywordStruct) => {
                 self.next();
-                self.parse_struct_def(name, indent)
+                self.parse_struct_def(defined, indent)
             },
             Some(Token::KeywordEnum) => {
                 self.next();
-                self.parse_enum_def(name, indent)
+                self.parse_enum_def(defined, indent)
             },
             Some(Token::KeywordClass) => {
                 self.next();
-                self.parse_class_def(name, indent)
+                self.parse_class_def(defined, indent)
             },
             Some(_) => {
                 let t = self.parse_type();
                 let td = TypeDefinition::Alias(t);
-                let decl = Declaration::TypeDecl(name, Box::new(td));
+                let decl = Declaration::TypeDecl(defined, Box::new(td));
                 let dref = self.syntax.add_declaration(decl);
                 self.eat_newline_decl(dref)
             },
@@ -158,7 +154,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_struct_def(&mut self, name: String, indent: u32) -> DeclarationRef {
+    fn parse_struct_def(&mut self, defined: TypeRef, indent: u32) -> DeclarationRef {
         let fields = match self.parse_type_fields(indent) {
             Ok(fs) => fs,
             Err(dref) => return dref,
@@ -167,12 +163,12 @@ impl<'a> Parser<'a> {
         // Assemble the result
         let struct_type = StructType{fields: fields};
         let td = TypeDefinition::Structure(struct_type);
-        let decl = Declaration::TypeDecl(name, Box::new(td));
+        let decl = Declaration::TypeDecl(defined, Box::new(td));
         let dref = self.syntax.add_declaration(decl);
         dref
     }
 
-    fn parse_enum_def(&mut self, name: String, indent: u32) -> DeclarationRef {
+    fn parse_enum_def(&mut self, defined: TypeRef, indent: u32) -> DeclarationRef {
         if !self.require_next(Token::Colon) {
             return self.declaration_error("Expected a colon");
         }
@@ -246,11 +242,11 @@ impl<'a> Parser<'a> {
         // Assemble the result
         let enum_type = EnumType{variants: variants};
         let td = TypeDefinition::Enum(enum_type);
-        let decl = Declaration::TypeDecl(name, Box::new(td));
+        let decl = Declaration::TypeDecl(defined, Box::new(td));
         self.syntax.add_declaration(decl)
     }
 
-    fn parse_class_def(&mut self, name: String, indent: u32) -> DeclarationRef {
+    fn parse_class_def(&mut self, defined: TypeRef, indent: u32) -> DeclarationRef {
         panic!("TODO")
     }
 

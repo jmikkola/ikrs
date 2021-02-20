@@ -135,7 +135,7 @@ pub enum Declaration {
 
     PackageDecl(String),
     ImportDecl(Vec<String>),
-    TypeDecl(String, Box<TypeDefinition>),
+    TypeDecl(TypeRef, Box<TypeDefinition>),
     FunctionDecl(Box<FunctionDecl>),
 }
 
@@ -153,8 +153,10 @@ impl Inspect for &Declaration {
                 }
                 write!(f, ")")
             },
-            TypeDecl(name, tdef) => {
-                write!(f, "(type {} ", name)?;
+            TypeDecl(defined, tdef) => {
+                write!(f, "(type ")?;
+                defined.inspect(f, s)?;
+                write!(f, " ")?;
                 tdef.inspect(f, s)?;
                 write!(f, ")")
             },

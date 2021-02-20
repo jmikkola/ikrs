@@ -388,6 +388,18 @@ type Light struct:
 }
 
 #[test]
+fn test_generic_struct_decl() {
+    let decl = r#"
+type Pair<t> struct:
+  a t
+  b t
+    "#;
+
+    let expected = "(type (generic Pair (tvar t)) (struct (a (tvar t)) (b (tvar t))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
 fn test_type_alias_decl() {
     let decl = "type Size Int";
     let expected = "(type Size alias Int)";
