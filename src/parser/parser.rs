@@ -1,12 +1,13 @@
 use super::ast::*;
-use super::tokens::Token;
 use super::location::Location;
+use super::tokenize::Tokens;
+use super::tokens::Token;
 
 #[cfg(test)]
 mod test;
 
-pub fn parse<'a>(tokens: &'a Vec<(Token, Location)>) -> Syntax {
-    let mut parser = Parser::new(tokens);
+pub fn parse<'a>(tokens: &'a Tokens) -> Syntax {
+    let mut parser = Parser::new(&tokens.tokens);
     parser.parse_file();
     // TODO: Move errors into syntax
     parser.syntax

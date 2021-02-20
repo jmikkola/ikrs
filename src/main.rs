@@ -6,8 +6,6 @@ use std::io;
 mod parser;
 
 use parser::tokenize::tokenize;
-use parser::tokens::Token;
-use parser::location::Location;
 use parser::parser::parse;
 
 fn main() -> io::Result<()> {
@@ -20,7 +18,7 @@ fn main() -> io::Result<()> {
         reader.read_to_string(&mut contents)?;
 
         let tokens = tokenize(contents.as_str());
-        if has_unknown(&tokens) {
+        if tokens.has_unknown() {
             error = true;
             continue;
         }
@@ -38,14 +36,4 @@ fn main() -> io::Result<()> {
         std::process::exit(1);
     }
     Ok(())
-}
-
-fn has_unknown(tokens: &Vec<(Token, Location)>) -> bool {
-    for (t, _) in tokens {
-        if let Token::Unknown(_) = t {
-            println!("unknown token: {}", t);
-            return true;
-        }
-    }
-    false
 }

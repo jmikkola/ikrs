@@ -27,7 +27,7 @@ fn do_stuff():
    let fl  = 1.23 ** 2.73
 
    // Comparison operators
-   let x  = fl < Float(int)
+   let x  = fl < to_float(int)
    // let x = True
 
    // Bitwise operators (on Ints)

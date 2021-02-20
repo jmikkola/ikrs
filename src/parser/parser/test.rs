@@ -30,7 +30,7 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
     let trimmed = input.trim_start_matches(to_trim);
 
     let tokens = tokenize(input);
-    let mut parser = Parser::new(&tokens);
+    let mut parser = Parser::new(&tokens.tokens);
 
     parser.parse_file();
 
@@ -53,7 +53,7 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
 fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
 where F: Fn(&mut Parser) -> I, I: Inspect {
     let tokens = tokenize(input);
-    let mut parser = Parser::new(&tokens);
+    let mut parser = Parser::new(&tokens.tokens);
     let inspectable = f(&mut parser);
     let is_done = parser.is_done();
     let s = parser.syntax;
@@ -67,12 +67,6 @@ where F: Fn(&mut Parser) -> I, I: Inspect {
     if require_done {
         assert_eq!(true, is_done, "parser left extra input");
     }
-}
-
-#[test]
-fn test_empty() {
-    let result = parse(&vec![]);
-    assert!(result.statements.is_empty());
 }
 
 #[test]

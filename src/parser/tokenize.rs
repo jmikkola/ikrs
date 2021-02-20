@@ -1,8 +1,35 @@
-use super::tokens::Token;
+use super::tokens::{Token, Comment};
 use super::location::Location;
 
-pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
+#[derive(Debug)]
+pub struct Tokens {
+    pub tokens: Vec<(Token, Location)>,
+    pub comments: Vec<(Comment, Location)>,
+}
+
+impl Tokens {
+    pub fn has_unknown(&self) -> bool {
+        for (t, _) in self.tokens.iter() {
+            if let Token::Unknown(_) = t {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn get_unknown(&self) -> Vec<&String> {
+        self.tokens.iter()
+            .filter_map(|(tok, _)| match tok {
+                Token::Unknown(s) => Some(s),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+pub fn tokenize(text: &str) -> Tokens {
     let mut tokens = vec![];
+    let mut comments = vec![];
     let mut current = String::new();
     // Location where the current token started
     let mut start_location = Location::new();
@@ -130,7 +157,7 @@ pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
             },
             BlockCommentStar => {
                 if c == '/' {
-                    tokens.push((Token::BlockComment(current), start_location));
+                    comments.push((Comment::BlockComment(current), start_location));
                     current = String::new();
                     state = Start;
                 } else if c == '*' {
@@ -145,7 +172,7 @@ pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
             },
             LineComment => {
                 if c == '\n' {
-                    tokens.push((Token::LineComment(current), start_location));
+                    comments.push((Comment::LineComment(current), start_location));
                 } else {
                     current.push(c);
                     continue;
@@ -306,7 +333,7 @@ pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
                 tokens.push((Token::Slash, start_location));
             },
             LineComment => {
-                tokens.push((Token::LineComment(current), start_location));
+                comments.push((Comment::LineComment(current), start_location));
             },
             BlockComment | BlockCommentStar => {
                 // Block comment was never closed
@@ -336,7 +363,10 @@ pub fn tokenize(text: &str) -> Vec<(Token, Location)> {
         }
     }
 
-    tokens
+    Tokens {
+        tokens: tokens,
+        comments: comments,
+    }
 }
 
 fn name_token(name: String) -> Token {
@@ -365,11 +395,27 @@ fn name_token(name: String) -> Token {
 }
 
 #[cfg(test)]
-fn untokenize(tokens: Vec<(Token, Location)>) -> String {
+fn merge_tokens(tokens: &Tokens) -> Vec<(Result<Token, Comment>, Location)> {
+    let mut results: Vec<(Result<Token, Comment>, Location)> = tokens.tokens.iter()
+        .cloned()
+        .map(|(t, l)| (Ok(t), l))
+        .chain(
+            tokens.comments.iter().cloned()
+                .map(|(c, l)| (Err(c), l))
+        )
+        .collect();
+    results.sort_by_key(|(_, l)| l.clone());
+    results
+}
+
+#[cfg(test)]
+fn untokenize(tokens: Tokens) -> String {
     let mut result = String::new();
     let mut here = Location::new();
 
-    for (token, location) in tokens {
+    let merged = merge_tokens(&tokens);
+
+    for (tc, location) in merged {
         if location.is_before(here) {
             panic!("can't rewind, currently have {}", result);
         }
@@ -384,7 +430,10 @@ fn untokenize(tokens: Vec<(Token, Location)>) -> String {
             here = here.update(' ');
         }
 
-        let formatted = format!("{}", token);
+        let formatted = match tc {
+            Ok(token) => format!("{}", token),
+            Err(comment) => format!("{}", comment),
+        };
         for c in formatted.chars() {
             here = here.update(c);
         }
@@ -400,8 +449,20 @@ mod test {
     use super::*;
     use Token::*;
 
+    fn tokens(input: &str) -> Vec<(Token, Location)> {
+        tokenize(input).tokens
+    }
+
+    fn comments(input: &str) -> Vec<(Comment, Location)> {
+        tokenize(input).comments
+    }
+
     fn get_tokens(input: &str) -> Vec<Token> {
-        tokenize(input).iter().map(|(token, _)| { token }).cloned().collect()
+        tokens(input).iter().map(|(token, _)| { token }).cloned().collect()
+    }
+
+    fn get_comments(input: &str) -> Vec<Comment> {
+        comments(input).iter().map(|(token, _)| { token }).cloned().collect()
     }
 
     fn assert_is_token(expected: Token, input: &str) {
@@ -412,10 +473,14 @@ mod test {
         assert_eq!(expected, get_tokens(input));
     }
 
+    fn assert_comments(expected: Vec<Comment>, input: &str) {
+        assert_eq!(expected, get_comments(input));
+    }
+
     #[test]
     fn test_tokenize_empty() {
         let empty: Vec<(Token, Location)> = vec![];
-        assert_eq!(empty, tokenize(""));
+        assert_eq!(empty, tokens(""));
     }
 
     #[test]
@@ -449,16 +514,29 @@ mod test {
     #[test]
     fn test_comments() {
         assert_tokens(
-            vec![IntLiteral(123), LineComment(" foo".to_string())],
+            vec![IntLiteral(123)],
             "123   // foo"
         );
+        assert_comments(
+            vec![Comment::LineComment(" foo".to_string())],
+            "123   // foo"
+        );
+
         assert_tokens(
-            vec![IntLiteral(123), LineComment(" foo".to_string()), Newline],
+            vec![IntLiteral(123), Newline],
             "123   // foo\n"
         );
+        assert_comments(
+            vec![Comment::LineComment(" foo".to_string())],
+            "123   // foo\n"
+        );
+
         assert_tokens(
-            vec![ValueName("x".to_string()), BlockComment("\n comment ".to_string()),
-                 Plus, IntLiteral(123)],
+            vec![ValueName("x".to_string()), Plus, IntLiteral(123)],
+            "x  /*\n comment */ +  123"
+        );
+        assert_comments(
+            vec![Comment::BlockComment("\n comment ".to_string())],
             "x  /*\n comment */ +  123"
         );
     }
@@ -477,14 +555,14 @@ mod test {
     #[test]
     fn test_unclosed_things() {
         let unclosed_string = vec![(Unknown("\"foo".to_string()), Location::new())];
-        assert_eq!(unclosed_string, tokenize("\"foo"));
+        assert_eq!(unclosed_string, tokens("\"foo"));
 
         let unclosed_escape = vec![(Unknown("\"foo\\".to_string()), Location::new())];
-        assert_eq!(unclosed_escape, tokenize("\"foo\\"));
+        assert_eq!(unclosed_escape, tokens("\"foo\\"));
 
         let unclosed_block_comment = vec![(Unknown("  comment  ".to_string()), Location::new())];
-        assert_eq!(unclosed_block_comment, tokenize("/*  comment  *"));
-        assert_eq!(unclosed_block_comment, tokenize("/*  comment  "));
+        assert_eq!(unclosed_block_comment, tokens("/*  comment  *"));
+        assert_eq!(unclosed_block_comment, tokens("/*  comment  "));
     }
 
     fn assert_untokenizes(input: &str) {

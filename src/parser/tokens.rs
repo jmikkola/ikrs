@@ -64,7 +64,10 @@ pub enum Token {
     IntLiteral(i64),
     FloatLiteral(f64),
     StringLiteral(String),
+}
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum Comment {
     // Idea: These could contain start/end locations (or just end locations?)
     // and expect callers to find the value in the file
     LineComment(String),
@@ -130,6 +133,14 @@ impl fmt::Display for Token {
             IntLiteral(i)    => write!(f, "{}", i),
             FloatLiteral(n)  => write!(f, "{}", n),
             StringLiteral(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl fmt::Display for Comment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Comment::*;
+        match self {
             LineComment(s)   => write!(f, "//{}", s),
             BlockComment(s)  => write!(f, "/*{}*/", s),
         }
