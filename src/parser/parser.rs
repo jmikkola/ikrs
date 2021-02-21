@@ -248,7 +248,103 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_class_def(&mut self, defined: TypeRef, indent: u32) -> DeclarationRef {
-        panic!("TODO")
+        let mut supers = vec![];
+
+        if self.is_next(Token::KeywordExtends) {
+            self.next();
+
+            loop {
+                let sup = match self.next_token() {
+                    Some(Token::TypeName(n)) => n.clone(),
+                    _ => return self.declaration_error("Expected a class name after extends"),
+                };
+                supers.push(sup);
+
+                if self.is_next(Token::Comma) {
+                    self.next();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if !self.require_next(Token::Colon) {
+            return self.declaration_error("Expected a colon");
+        }
+
+        if !self.require_next(Token::Newline) {
+            return self.declaration_error("Expected a newline after a colon");
+        }
+
+        let mut methods = vec![];
+        let mut new_indent = None;
+
+        loop {
+            let (token, location) = match self.peek() {
+                // The file could end inside a class definition
+                None => break,
+                Some(tok) => tok,
+            };
+
+            if *token == Token::Newline {
+                // Skip blank lines
+                self.next();
+                continue;
+            }
+
+            // Make sure (a) we're still inside this block and (b) it's not some
+            // invalid indent
+            match new_indent {
+                None => {
+                    // This is the first line, so set up the indent
+                    if location.col <= indent {
+                        // The block was empty (or the first line wasn't indented right)
+                        break;
+                    }
+                    new_indent = Some(location.col);
+                },
+                Some(level) => {
+                    if location.col > level {
+                        return self.declaration_error("Class method indented too far");
+                    } else if location.col < level {
+                        // The block has ended
+                        break;
+                    }
+                }
+            }
+
+            match self.parse_class_method() {
+                Ok(cm) => methods.push(cm),
+                Err(dref) => return dref,
+            }
+        }
+
+        let class_type = ClassType{
+            super_classes: supers,
+            methods: methods,
+        };
+        let td = TypeDefinition::Class(class_type);
+        let decl = Declaration::TypeDecl(defined, Box::new(td));
+        self.syntax.add_declaration(decl)
+    }
+
+    fn parse_class_method(&mut self) -> Result<ClassMethod, DeclarationRef> {
+        if !self.require_next(Token::KeywordFn) {
+            return Err(self.declaration_error("Expected class methods to start with fn"));
+        }
+
+        let name = match self.next_token() {
+            Some(Token::ValueName(n)) => n.clone(),
+            _ => return Err(self.declaration_error("Expected a name after fn")),
+        };
+
+        let ftype = self.parse_fn_type();
+
+        let method = ClassMethod{
+            name: name,
+            ftype: ftype,
+        };
+        Ok(method)
     }
 
     // the fields must be indented more than `indent`.
@@ -376,15 +472,26 @@ impl<'a> Parser<'a> {
             return self.declaration_error("Expected a ) closing the function's args");
         }
 
-        let ret_type = if self.is_next(Token::Colon) {
-            None
-        } else {
+        let ret_type = if self.starting_type() {
             Some(self.parse_type())
+        } else {
+            None
+        };
+
+        let constraints = if self.is_next(Token::KeywordWhere) {
+            self.next();
+            match self.parse_constraints() {
+                Ok(list) => list,
+                Err(err) => return self.declaration_error(err),
+            }
+        } else {
+            vec![]
         };
 
         let block = self.parse_block(indent);
 
-        let fn_type = match self.assemble_fn_type(arg_types, ret_type) {
+        let assembled = self.assemble_fn_type(arg_types, ret_type, constraints);
+        let fn_type = match assembled {
             Ok(t) => t,
             Err(dref) => return dref,
         };
@@ -403,34 +510,34 @@ impl<'a> Parser<'a> {
         &mut self,
         arg_types: Vec<Option<TypeRef>>,
         ret_type: Option<TypeRef>,
+        constraints: Vec<Constraint>,
     ) -> Result<Option<TypeRef>, DeclarationRef> {
         let provided_args: Vec<TypeRef> = arg_types.iter().filter_map(|x| *x).collect();
 
-        if arg_types.len() == 0 {
-            Ok(ret_type.map(|t| self.syntax.add_type(Type::FnType(vec![], t))))
-        } else if provided_args.len() == arg_types.len() {
-            // all arg types were provided
+        let needs_type_defined = !provided_args.is_empty() ||
+            ret_type.is_some() ||
+            !constraints.is_empty();
 
-            // When no return type is written but at least one arg is typed,
-            // void is assumed
-            let ret = ret_type.unwrap_or_else(|| self.syntax.add_type(Type::Void));
-            let t = Type::FnType(provided_args, ret);
-            let tref = self.syntax.add_type(t);
-            Ok(Some(tref))
-        } else if provided_args.len() == 0 {
-            // no arg types provided (but there are more than 0 args)
-            if ret_type.is_some() {
-                let dref = self.declaration_error("The return value is typed, but not the arguments");
-                Err(dref)
-            } else {
-                Ok(None)
-            }
-        } else {
-            // some args have types, some don't
-            // (this will give an incorrect location for the error)
-            let dref = self.declaration_error("Not all arguments have types");
-            Err(dref)
+        if !needs_type_defined {
+            return Ok(None);
         }
+
+        if provided_args.len() < arg_types.len() {
+            let dref = self.declaration_error("Some arguments on a typed function are missing types");
+            return Err(dref);
+        }
+
+        // When no return type is written but at least one arg is typed,
+        // void is assumed
+        let ret = ret_type.unwrap_or_else(|| self.syntax.add_type(Type::Void));
+        let func_type = FuncType{
+            arg_types: provided_args,
+            ret_type: ret,
+            constraints: constraints,
+        };
+        let t = Type::FnType(Box::new(func_type));
+        let tref = self.syntax.add_type(t);
+        Ok(Some(tref))
     }
 
     // Skip to the next newline (or end of file) for better error messages
@@ -565,8 +672,50 @@ impl<'a> Parser<'a> {
             self.syntax.add_type(Type::Void)
         };
 
-        let t = Type::FnType(args, ret);
-        self.syntax.add_type(t)
+        let constraints = if self.is_next(Token::KeywordWhere) {
+            self.next();
+            match self.parse_constraints() {
+                Ok(list) => list,
+                Err(err) => return self.type_error(err),
+            }
+        } else {
+            vec![]
+        };
+
+        let func_type = FuncType{
+            arg_types: args,
+            ret_type: ret,
+            constraints: constraints,
+        };
+        self.syntax.add_type(Type::FnType(Box::new(func_type)))
+    }
+
+    fn parse_constraints(&mut self) -> Result<Vec<Constraint>, &'static str> {
+        let mut constraints = vec![];
+
+        while self.starting_type() {
+            constraints.push(self.parse_constraint()?);
+            if self.is_next(Token::Comma) {
+                self.next();
+            } else {
+                break;
+            }
+        }
+
+        Ok(constraints)
+    }
+
+    fn parse_constraint(&mut self) -> Result<Constraint, &'static str> {
+        let constrained = self.parse_type();
+        if !self.require_next(Token::Colon) {
+            return Err("Expected a : after the constrained type");
+        }
+        let class = match self.next_token() {
+            Some(Token::TypeName(n)) => n.clone(),
+            _ => return Err("Expected a class name after the constrained type"),
+        };
+
+        Ok(Constraint{constrained: constrained, class: class})
     }
 
     // Is a type about to start?

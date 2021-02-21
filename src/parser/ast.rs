@@ -314,7 +314,7 @@ pub enum Type {
     TypeName(String),
     TypeVar(String),
     Generic(String, Vec<TypeRef>),
-    FnType(Vec<TypeRef>, TypeRef),
+    FnType(Box<FuncType>),
 }
 
 #[cfg(test)]
@@ -334,21 +334,47 @@ impl Inspect for Type {
                 }
                 write!(f, ")")
             },
-            FnType(arg_types, ret_type) => {
-                write!(f, "(function (")?;
-                let mut wrote_first = false;
-                for t in arg_types {
-                    if wrote_first {
-                        write!(f, " ")?;
-                    }
-                    wrote_first = true;
-                    t.inspect(f, s)?;
-                }
-                write!(f, ") ")?;
-                ret_type.inspect(f, s)?;
-                write!(f, ")")
+            FnType(func_type) => {
+                func_type.inspect(f, s)
             },
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FuncType {
+    pub arg_types: Vec<TypeRef>,
+    pub ret_type: TypeRef,
+    pub constraints: Vec<Constraint>,
+}
+
+#[cfg(test)]
+impl Inspect for FuncType {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "(function ")?;
+        inspect_list(&self.arg_types, f, s)?;
+        write!(f, " ")?;
+        self.ret_type.inspect(f, s)?;
+        if !self.constraints.is_empty() {
+            write!(f, " where ")?;
+            inspect_list(&self.constraints, f, s)?;
+        }
+        write!(f, ")")
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Constraint {
+    pub constrained: TypeRef,
+    pub class: String,
+}
+
+#[cfg(test)]
+impl Inspect for Constraint {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "(")?;
+        self.constrained.inspect(f, s)?;
+        write!(f, " {})", self.class)
     }
 }
 
@@ -376,6 +402,7 @@ pub enum TypeDefinition {
     Alias(TypeRef),
     Structure(StructType),
     Enum(EnumType),
+    Class(ClassType),
 }
 
 #[cfg(test)]
@@ -392,6 +419,9 @@ impl Inspect for TypeDefinition {
             },
             Enum(enum_type) => {
                 enum_type.inspect(f, s)
+            },
+            Class(class_type) => {
+                class_type.inspect(f, s)
             },
         }
     }
@@ -451,6 +481,46 @@ impl Inspect for EnumVariant {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         write!(f, "({}", self.name)?;
         self.content.write_inner(f, s)?;
+        write!(f, ")")
+    }
+}
+
+#[derive(Debug)]
+pub struct ClassType {
+    pub super_classes: Vec<String>,
+    pub methods: Vec<ClassMethod>,
+}
+
+#[cfg(test)]
+impl Inspect for ClassType {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "(class")?;
+
+        if !self.super_classes.is_empty() {
+            write!(f, " extends ")?;
+            inspect_list(&self.super_classes, f, s)?;
+        }
+
+        for m in self.methods.iter() {
+            write!(f, " ")?;
+            m.inspect(f, s)?;
+        }
+
+        write!(f, ")")
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ClassMethod {
+    pub name: String,
+    pub ftype: TypeRef,
+}
+
+#[cfg(test)]
+impl Inspect for ClassMethod {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "({} :: ", self.name)?;
+        self.ftype.inspect(f, s)?;
         write!(f, ")")
     }
 }
@@ -750,4 +820,26 @@ impl Inspect for BinaryOp {
             GreaterEqual => write!(f, ">="),
         }
     }
+}
+
+#[cfg(test)]
+impl Inspect for String {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+#[cfg(test)]
+fn inspect_list<T>(items: &Vec<T>, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result
+where T: Inspect {
+    write!(f, "(")?;
+    let mut wrote_first = false;
+    for item in items.iter() {
+        if wrote_first {
+            write!(f, " ")?;
+        }
+        wrote_first = true;
+        item.inspect(f, s);
+    }
+    write!(f, ")")
 }

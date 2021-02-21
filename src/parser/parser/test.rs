@@ -327,6 +327,24 @@ fn test_function_type() {
 }
 
 #[test]
+fn test_function_type_with_constraints() {
+    assert_parses_type(
+        "fn(t) t where t: Sized",
+        "(function ((tvar t)) (tvar t) where (((tvar t) Sized)))"
+    );
+
+    assert_parses_type(
+        "fn(t) where t: Sized",
+        "(function ((tvar t)) void where (((tvar t) Sized)))"
+    );
+
+    assert_parses_type(
+        "fn(t) t where t: A, t: B",
+        "(function ((tvar t)) (tvar t) where (((tvar t) A) ((tvar t) B)))"
+    );
+}
+
+#[test]
 fn test_package_decl() {
     assert_parses_decl("package main", "(package main)");
     assert_parses_decl("package main\n", "(package main)");
@@ -377,6 +395,20 @@ fn save(a Int, b Int):
     "#;
 
     assert_parses_decl(decl, "(defn save (a b) :: (function (Int Int) void) (do (expr (call foo a b))))");
+}
+
+#[test]
+fn test_function_with_contraint() {
+    let decl = r#"
+fn save(a t) where t: Sized:
+   foo(a)
+    "#;
+
+    let expected = "(defn save (a) \
+                    :: (function ((tvar t)) void \
+                    where (((tvar t) Sized))) \
+                    (do (expr (call foo a))))";
+    assert_parses_decl(decl, expected);
 }
 
 #[test]
@@ -437,6 +469,44 @@ type Lambdas enum:
                     (Abstraction (arg String) (body Lambdas))))";
     assert_parses_decl(decl, expected);
 }
+
+#[test]
+fn test_class_definition() {
+    let decl = r#"
+type Addable class:
+  fn add(Self, Self) Self
+"#;
+
+    let expected = "(type Addable (class (add :: (function (Self Self) Self))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_class_extends() {
+   let decl = r#"
+type A class extends B, C:
+  fn f(Self)
+  fn g(Self, Int) String
+"#;
+
+    let expected = "(type A (class extends (B C) \
+                    (f :: (function (Self) void)) \
+                    (g :: (function (Self Int) String))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_class_definition_with_method_constraint() {
+    let decl = r#"
+type Addable class:
+  fn add(Self, other) Self where other: ToInt
+"#;
+
+    let expected = "(type Addable (class (add :: (function (Self (tvar other)) Self \
+                    where (((tvar other) ToInt))))))";
+    assert_parses_decl(decl, expected);
+}
+
 
 #[test]
 fn test_parses_file() {
