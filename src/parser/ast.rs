@@ -78,18 +78,22 @@ impl Syntax {
         }
     }
 
+    #[cfg(test)]
     pub fn get_expression(&self, ExpressionRef(r): ExpressionRef) -> &Expression {
         &self.expressions[r]
     }
 
+    #[cfg(test)]
     pub fn get_statement(&self, StatementRef(r): StatementRef) -> &Statement {
         &self.statements[r]
     }
 
+    #[cfg(test)]
     pub fn get_declaration(&self, DeclarationRef(r): DeclarationRef) -> &Declaration {
         &self.declarations[r]
     }
 
+    #[cfg(test)]
     pub fn get_type(&self, TypeRef(r): TypeRef) -> &Type {
         &self.types[r]
     }

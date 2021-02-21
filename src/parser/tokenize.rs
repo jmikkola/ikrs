@@ -17,14 +17,14 @@ impl Tokens {
         false
     }
 
-    pub fn get_unknown(&self) -> Vec<&String> {
-        self.tokens.iter()
-            .filter_map(|(tok, _)| match tok {
-                Token::Unknown(s) => Some(s),
-                _ => None,
-            })
-            .collect()
-    }
+    // pub fn get_unknown(&self) -> Vec<&String> {
+    //     self.tokens.iter()
+    //         .filter_map(|(tok, _)| match tok {
+    //             Token::Unknown(s) => Some(s),
+    //             _ => None,
+    //         })
+    //         .collect()
+    // }
 }
 
 pub fn tokenize(text: &str) -> Tokens {

@@ -558,7 +558,7 @@ impl<'a> Parser<'a> {
         match self.next() {
             // A declaration can be the last line in a file
             None | Some((Token::Newline, _)) => result,
-            Some((t, _)) => {
+            Some(_) => {
                 self.declaration_error("Unexpected token after declaration")
             },
         }
@@ -795,7 +795,7 @@ impl<'a> Parser<'a> {
         match self.next() {
             // A statement can be the last line in a file
             None | Some((Token::Newline, _)) => result,
-            Some((t, _)) => {
+            Some(_) => {
                 self.statement_error("Unexpected token after statement")
             },
         }
@@ -1430,10 +1430,6 @@ impl<'a> Parser<'a> {
 
     fn peek_token(&self) -> Option<&'a Token> {
         self.peek().map(|(t, _)| t)
-    }
-
-    fn peek_next(&self) -> Option<&'a (Token, Location)> {
-        self.tokens.get(self.index + 1)
     }
 
     fn is_next(&self, expected: Token) -> bool {
