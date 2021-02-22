@@ -1116,7 +1116,12 @@ impl<'a> Parser<'a> {
                 return self.statement_error("'else' not at expected indentation");
             }
 
-            Some(self.parse_block(indent))
+            if self.is_next(Token::KeywordIf) {
+                self.next();
+                Some(self.parse_if(indent))
+            } else {
+                Some(self.parse_block(indent))
+            }
         } else {
             None
         };

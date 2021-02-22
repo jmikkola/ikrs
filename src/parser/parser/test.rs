@@ -224,6 +224,32 @@ fn test_nested_if_statements() {
 }
 
 #[test]
+fn test_else_if() {
+    let stmt = r#"
+if x:
+  return 1
+else if y:
+  return 2
+"#;
+    let expected = "(if x (do (return 1)) (if y (do (return 2))))";
+    assert_parses_stmt(stmt, expected);
+}
+
+#[test]
+fn test_else_if_else() {
+    let stmt = r#"
+if x:
+  return 1
+else if y:
+  return 2
+else:
+  return 3
+"#;
+    let expected = "(if x (do (return 1)) (if y (do (return 2)) (do (return 3))))";
+    assert_parses_stmt(stmt, expected);
+}
+
+#[test]
 fn test_while() {
     let stmt = "while 1:\n  return 2";
     assert_parses_stmt(stmt, "(while 1 (do (return 2)))");
