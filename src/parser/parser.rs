@@ -9,7 +9,6 @@ mod test;
 pub fn parse<'a>(tokens: &'a Tokens) -> Syntax {
     let mut parser = Parser::new(&tokens.tokens);
     parser.parse_file();
-    // TODO: Move errors into syntax
     parser.syntax
 }
 
@@ -73,7 +72,9 @@ impl<'a> Parser<'a> {
             Token::KeywordFn => {
                 self.parse_func_decl(current_indent)
             },
-            // TODO: Handle Implementation declarations
+            Token::KeywordInstance => {
+                self.parse_instance_decl(current_indent)
+            },
             _ => {
                 self.declaration_error("bad declaration")
             },
@@ -121,6 +122,88 @@ impl<'a> Parser<'a> {
         }
 
         let d = Declaration::ImportDecl(names);
+        self.syntax.add_declaration(d)
+    }
+
+    fn parse_instance_decl(&mut self, indent: u32) -> DeclarationRef {
+        let class = match self.next_token() {
+            Some(Token::TypeName(name)) => name.clone(),
+            _ => return self.declaration_error("expected a name after 'instance'"),
+        };
+
+        let on_type = self.parse_type();
+
+        let constraints = if self.is_next(Token::KeywordWhere) {
+            self.next();
+            match self.parse_constraints() {
+                Ok(list) => list,
+                Err(err) => return self.declaration_error(err),
+            }
+        } else {
+            vec![]
+        };
+
+        if !self.require_next(Token::Colon) {
+            return self.declaration_error("Expected instance declaration to end with a colon");
+        }
+
+        if !self.require_next(Token::Newline) {
+            return self.declaration_error("Expected a newline after a colon");
+        }
+
+        let mut methods = vec![];
+        let mut new_indent = None;
+
+        loop {
+            let (token, location) = match self.peek() {
+                // The file could end inside a block
+                None => break,
+                Some(tok) => tok,
+            };
+
+            if *token == Token::Newline {
+                // ignore it
+                self.next();
+                continue;
+            }
+
+            // Make sure the indent is valid and the block hasn't ended
+            match new_indent {
+                None => {
+                    if location.col <= indent {
+                        // The instance ended with no statements
+                        break;
+                    }
+                    new_indent = Some(location.col);
+                },
+                Some(level) => {
+                    if location.col > level {
+                        let err_stmt = self.declaration_error("Instance method indented too far");
+                        // Invalid indentation -- parse the statement anyway to
+                        // leave the stream of tokens sensible
+                        self.parse_func_decl(location.col);
+                        return err_stmt;
+                    } else if location.col < level {
+                        // The block has ended
+                        break;
+                    }
+                },
+            }
+
+            if !self.require_next(Token::KeywordFn) {
+                return self.declaration_error("Expected instance methods to start with 'fn'");
+            }
+            let method = self.parse_func_decl(new_indent.unwrap());
+            methods.push(method);
+        }
+
+        let inst_decl = InstanceDecl{
+            on_type: on_type,
+            class: class,
+            constraints: constraints,
+            methods: methods,
+        };
+        let d = Declaration::InstanceDecl(Box::new(inst_decl));
         self.syntax.add_declaration(d)
     }
 

@@ -139,6 +139,7 @@ pub enum Declaration {
     ImportDecl(Vec<String>),
     TypeDecl(TypeRef, Box<TypeDefinition>),
     FunctionDecl(Box<FunctionDecl>),
+    InstanceDecl(Box<InstanceDecl>),
 }
 
 #[cfg(test)]
@@ -163,6 +164,7 @@ impl Inspect for &Declaration {
                 write!(f, ")")
             },
             FunctionDecl(fdecl) => fdecl.inspect(f, s),
+            InstanceDecl(idecl) => idecl.inspect(f, s),
         }
     }
 }
@@ -702,6 +704,31 @@ impl Inspect for StructPattern {
         for pat in self.field_patterns.iter() {
             write!(f, " ")?;
             pat.inspect(f, s)?;
+        }
+        write!(f, ")")
+    }
+}
+
+#[derive(Debug)]
+pub struct InstanceDecl {
+    pub on_type: TypeRef,
+    pub class: String,
+    pub constraints: Vec<Constraint>,
+    pub methods: Vec<DeclarationRef>,
+}
+
+#[cfg(test)]
+impl Inspect for InstanceDecl {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "(instance {} ", self.class)?;
+        self.on_type.inspect(f, s)?;
+        if !self.constraints.is_empty() {
+            write!(f, " where ")?;
+            inspect_list(&self.constraints, f, s)?;
+        }
+        for method in self.methods.iter() {
+            write!(f, " ")?;
+            method.inspect(f, s)?;
         }
         write!(f, ")")
     }

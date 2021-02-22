@@ -496,6 +496,34 @@ type A class extends B, C:
 }
 
 #[test]
+fn test_instance_declaration() {
+    let decl = r#"
+instance Show ID:
+  fn show(self):
+    return to_string(self)
+"#;
+    let expected = "(instance Show ID \
+                    (defn show (self) (do (return (call to_string self)))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_instance_with_constraints() {
+    let decl = r#"
+instance Show Pair<t> where t: Show:
+  fn show(self):
+    return show(self.left) + " " + show(self.right)
+"#;
+    let expected = "(instance Show \
+                    (generic Pair (tvar t)) \
+                    where (((tvar t) Show)) \
+                    (defn show (self) (do (return (binary + (binary + \
+                    (call show (access self left)) \" \") \
+                    (call show (access self right)))))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
 fn test_class_definition_with_method_constraint() {
     let decl = r#"
 type Addable class:
