@@ -130,6 +130,16 @@ pub fn tokenize(text: &str) -> Tokens {
                             tokens.push((Token::SingleOr, start_location));
                         }
                     },
+                    '*' => {
+                        if c == '*' {
+                            tokens.push((Token::DoubleStar, start_location));
+                            current = String::new();
+                            state = Start;
+                            continue;
+                        } else {
+                            tokens.push((Token::Star, start_location));
+                        }
+                    },
                     _ => {
                         panic!("unexpected prev char in operator");
                     },
@@ -268,7 +278,6 @@ pub fn tokenize(text: &str) -> Tokens {
             '}' => tokens.push((Token::RBrace, location)),
             '+' => tokens.push((Token::Plus, location)),
             '-' => tokens.push((Token::Minus, location)),
-            '*' => tokens.push((Token::Star, location)),
             '/' => {
                 start_location = location;
                 state = Slash;
@@ -276,7 +285,7 @@ pub fn tokenize(text: &str) -> Tokens {
             '%' => tokens.push((Token::Percent, location)),
             '~' => tokens.push((Token::Tilda, location)),
             '^' => tokens.push((Token::Caret, location)),
-            '=' | '!' | '>' | '<' | '&' | '|' => {
+            '=' | '!' | '>' | '<' | '&' | '|' | '*' => {
                 current.push(c);
                 start_location = location;
                 state = Operator;

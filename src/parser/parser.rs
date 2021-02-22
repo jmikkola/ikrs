@@ -1257,6 +1257,7 @@ impl<'a> Parser<'a> {
                 Token::Star          => (BinaryOp::Times, 5),
                 Token::Slash         => (BinaryOp::Divide, 5),
                 Token::Percent       => (BinaryOp::Mod, 5),
+                Token::DoubleStar    => (BinaryOp::Power, 6),
                 // Reached the end of the binary expressions
                 _ => break,
             };
@@ -1267,7 +1268,7 @@ impl<'a> Parser<'a> {
         }
 
         // Group expression by precedence
-        let max_prec: u16 = 5;
+        let max_prec: u16 = 6;
         // Do one pass for each level of precedence, grouping just items at that
         // level of precedence
         for p in 0..=max_prec {

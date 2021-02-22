@@ -156,6 +156,12 @@ fn test_binary_ops() {
 }
 
 #[test]
+fn test_star_operators() {
+    assert_parses_expr("10 * 5", "(binary * 10 5)");
+    assert_parses_expr("10 ** 5", "(binary ** 10 5)");
+}
+
+#[test]
 fn test_mixing_binary_and_unary() {
     let expected = "(binary - 10 (unary - 5))";
     assert_parses_expr("10 - -5", expected);
