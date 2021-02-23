@@ -830,40 +830,42 @@ impl<'a> Parser<'a> {
             }
         }
 
+        let new_indent = location.col;
+
         // Only eat trailing newlines on statments that don't contain smaller
         // statements
         match token {
             Token::KeywordReturn => {
                 self.next();
-                let stmt = self.parse_return();
+                let stmt = self.parse_return(new_indent);
                 self.eat_trailing_newline(stmt)
             },
             Token::KeywordLet => {
                 self.next();
-                let stmt = self.parse_let();
+                let stmt = self.parse_let(new_indent);
                 self.eat_trailing_newline(stmt)
             },
             Token::KeywordIf => {
                 self.next();
-                self.parse_if(location.col)
+                self.parse_if(new_indent)
             },
             Token::KeywordWhile => {
                 self.next();
-                self.parse_while(location.col)
+                self.parse_while(new_indent)
             },
             Token::KeywordFor => {
                 self.next();
-                self.parse_for(location.col)
+                self.parse_for(new_indent)
             },
             Token::KeywordMatch => {
                 self.next();
-                self.parse_match(location.col)
+                self.parse_match(new_indent)
             },
             _ => {
-                let expr = self.parse_expression();
+                let expr = self.parse_expression(new_indent);
                 if self.is_next(Token::Equals) {
                     self.next();
-                    let value = self.parse_expression();
+                    let value = self.parse_expression(new_indent);
                     let stmt = self.syntax.add_statement(Statement::AssignStmt(expr, value));
                     self.eat_trailing_newline(stmt)
                 } else {
@@ -892,7 +894,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_match(&mut self, indent: u32) -> StatementRef {
-        let matched = self.parse_expression();
+        let matched = self.parse_expression(indent);
         let matchers = match self.parse_match_block(indent) {
             Ok(m) => m,
             Err(sref) => return sref,
@@ -1091,7 +1093,7 @@ impl<'a> Parser<'a> {
         if !self.require_next(Token::KeywordIn) {
             return self.statement_error("expected 'in' after the for loop's variable");
         }
-        let iterable = self.parse_expression();
+        let iterable = self.parse_expression(indent);
         let body = self.parse_block(indent);
         let for_statement = ForStatement{variable: variable, iterable: iterable, body: body};
         let stmt = Statement::ForStmt(Box::new(for_statement));
@@ -1099,7 +1101,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_while(&mut self, indent: u32) -> StatementRef {
-        let test = self.parse_expression();
+        let test = self.parse_expression(indent);
         let body = self.parse_block(indent);
         let while_statement = WhileStatement{test: test, body: body};
         let stmt = Statement::WhileStmt(Box::new(while_statement));
@@ -1107,7 +1109,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_if(&mut self, indent: u32) -> StatementRef {
-        let test = self.parse_expression();
+        let test = self.parse_expression(indent);
         let tbody = self.parse_block(indent);
 
         let ebody = if let Some((Token::KeywordElse, location)) = self.peek() {
@@ -1193,7 +1195,7 @@ impl<'a> Parser<'a> {
         self.syntax.add_statement(stmt)
     }
 
-    fn parse_return(&mut self) -> StatementRef {
+    fn parse_return(&mut self, indent: u32) -> StatementRef {
         let token = match self.peek() {
             None => {
                 return self.syntax.add_statement(Statement::Return);
@@ -1205,12 +1207,12 @@ impl<'a> Parser<'a> {
             // The caller eats this newline
             self.syntax.add_statement(Statement::Return)
         } else {
-            let expr = self.parse_expression();
+            let expr = self.parse_expression(indent);
             self.syntax.add_statement(Statement::ReturnExpr(expr))
         }
     }
 
-    fn parse_let(&mut self) -> StatementRef {
+    fn parse_let(&mut self, indent: u32) -> StatementRef {
         let name = match self.next() {
             Some((Token::ValueName(n), _)) => n.clone(),
             _ => {
@@ -1228,19 +1230,19 @@ impl<'a> Parser<'a> {
             return self.statement_error("Expected an = after let <name>");
         }
 
-        let expr = self.parse_expression();
+        let expr = self.parse_expression(indent);
         let stmt = Statement::LetStmt(name, tref, expr);
         self.syntax.add_statement(stmt)
     }
 
     // Parse binary operators (e.g. 1 + 2 - 3)
     // TODO: Handle the operators ^ & | ** << >>
-    fn parse_expression(&mut self) -> ExpressionRef {
+    fn parse_expression(&mut self, indent: u32) -> ExpressionRef {
         // Gather terms and operators
         let mut unary_exprs = vec![];
         let mut operators: Vec<(BinaryOp, u16)> = vec![];
 
-        unary_exprs.push(self.parse_unary());
+        unary_exprs.push(self.parse_unary(indent));
 
         loop {
             let token = match self.peek() {
@@ -1269,7 +1271,7 @@ impl<'a> Parser<'a> {
             self.next();
 
             operators.push((op, precedence));
-            unary_exprs.push(self.parse_unary());
+            unary_exprs.push(self.parse_unary(indent));
         }
 
         // Group expression by precedence
@@ -1312,7 +1314,7 @@ impl<'a> Parser<'a> {
     }
 
     // Unary operators and the value they apply to
-    fn parse_unary(&mut self) -> ExpressionRef {
+    fn parse_unary(&mut self, indent: u32) -> ExpressionRef {
         let token = match self.peek() {
             None => {
                 return self.expression_error("Expected an expression, got EOF")
@@ -1323,34 +1325,34 @@ impl<'a> Parser<'a> {
         match token {
             Token::Bang => {
                 self.next();
-                let inner = self.parse_unary();
+                let inner = self.parse_unary(indent);
                 let op = UnaryOp::BoolNot;
                 let expr = Expression::UnaryOperator(op, inner);
                 self.syntax.add_expression(expr)
             },
             Token::Tilda => {
                 self.next();
-                let inner = self.parse_unary();
+                let inner = self.parse_unary(indent);
                 let op = UnaryOp::BitInvert;
                 let expr = Expression::UnaryOperator(op, inner);
                 self.syntax.add_expression(expr)
             },
             Token::Minus => {
                 self.next();
-                let inner = self.parse_unary();
+                let inner = self.parse_unary(indent);
                 let op = UnaryOp::Negate;
                 let expr = Expression::UnaryOperator(op, inner);
                 self.syntax.add_expression(expr)
             },
             _ => {
-                self.parse_term()
+                self.parse_term(indent)
             },
         }
     }
 
     // Single values and field access, array access, and function calls
-    fn parse_term(&mut self) -> ExpressionRef {
-        let mut value = self.parse_single_value();
+    fn parse_term(&mut self, indent: u32) -> ExpressionRef {
+        let mut value = self.parse_single_value(indent);
 
         // This loop handles zero or more field access, offet access, and/or
         // function arguments after an expression.
@@ -1365,7 +1367,7 @@ impl<'a> Parser<'a> {
 
                     // Read args passed to function, allowing a trailing comma
                     while !self.is_next(Token::RParen) {
-                        args.push(self.parse_expression());
+                        args.push(self.parse_expression(indent));
                         if self.is_next(Token::Comma) {
                             self.next();
                         } else {
@@ -1381,7 +1383,7 @@ impl<'a> Parser<'a> {
                 },
                 Some((Token::LBracket, _)) => {
                     self.next();
-                    let offset = self.parse_expression();
+                    let offset = self.parse_expression(indent);
 
                     if self.require_next(Token::RBracket) {
                         self.syntax.add_expression(Expression::OffsetAccess(value, offset))
@@ -1409,7 +1411,7 @@ impl<'a> Parser<'a> {
     }
 
     // Literals, variables, and parentheticals
-    fn parse_single_value(&mut self) -> ExpressionRef {
+    fn parse_single_value(&mut self, indent: u32) -> ExpressionRef {
         let token = match self.next() {
             None => {
                 return self.expression_error("Expected a value, got EOF")
@@ -1419,7 +1421,7 @@ impl<'a> Parser<'a> {
 
         match token {
             Token::LParen => {
-                let inner = self.parse_expression();
+                let inner = self.parse_expression(indent);
                 if self.require_next(Token::RParen) {
                     self.syntax.add_expression(Expression::Paren(inner))
                 } else {
@@ -1443,12 +1445,53 @@ impl<'a> Parser<'a> {
                 self.syntax.add_expression(expr)
             },
             Token::TypeName(s) =>
-                self.parse_struct_expression(s.clone()),
+                self.parse_struct_expression(s.clone(), indent),
+            Token::KeywordFn =>
+                self.parse_lambda(indent),
             _ => self.expression_error("Unexpected token for a value"),
         }
     }
 
-    fn parse_struct_expression(&mut self, name: String) -> ExpressionRef {
+    fn parse_lambda(&mut self, indent: u32) -> ExpressionRef {
+        if !self.require_next(Token::LParen) {
+            return self.expression_error("Expected a ( after fn");
+        }
+
+        let mut arg_names = vec![];
+        loop {
+            let name = match self.peek_token() {
+                Some(Token::ValueName(n)) => n.clone(),
+                _ => break,
+            };
+            arg_names.push(name);
+
+            if self.is_next(Token::Comma) {
+                self.next();
+            } else {
+                break;
+            }
+        }
+
+        if !self.require_next(Token::RParen) {
+            return self.expression_error("Expected a closing ) after a lambda's arguments");
+        }
+
+        let body = self.parse_block(indent);
+
+        // Terrible hack: Back up one token to allow the last newline to end
+        // both the statement in the lambda and potentially the statement
+        // containing the lambda
+        self.index -= 1;
+        if !self.is_next(Token::Newline) {
+            self.next();
+        }
+
+        let lambda = Lambda{arg_names: arg_names, body: body};
+        let expr = Expression::Lambda(Box::new(lambda));
+        self.syntax.add_expression(expr)
+    }
+
+    fn parse_struct_expression(&mut self, name: String, indent: u32) -> ExpressionRef {
         let mut fields = vec![];
         if self.is_next(Token::LBrace) {
             self.next();
@@ -1470,7 +1513,7 @@ impl<'a> Parser<'a> {
                     self.next();
                 }
 
-                let value = self.parse_expression();
+                let value = self.parse_expression(indent);
                 fields.push((field_name, value));
 
                 match self.peek_token() {

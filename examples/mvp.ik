@@ -31,13 +31,14 @@ fn do_stuff():
    // let x = True
 
    // Bitwise operators (on Ints)
-   let y  = (~1024) & (15 << 2)
+   //let y  = (~1024) & (15 << 2)
+   // let y  = (~1024).bitand(15.lshift(2))
 
    // Boolean operators also exist
    if 1 == 1 && 2 < 3:
-      print(recursive(10, 4))
+       print(recursive(10, 4))
    else if False:
-     x = !!False
+       x = !!False
 
    let i  = 0
    while i < 10:

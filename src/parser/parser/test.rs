@@ -6,7 +6,7 @@ fn assert_parses_type(input: &str, expected: &str) {
 }
 
 fn assert_parses_expr(input: &str, expected: &str) {
-    assert_parses(input, expected, true, |parser| parser.parse_expression());
+    assert_parses(input, expected, true, |parser| parser.parse_expression(0));
 }
 
 fn assert_parses_pattern(input: &str, expected: &str) {
@@ -442,6 +442,63 @@ fn save(a t) where t: Sized:
                     (do (expr (call foo a))))";
     assert_parses_decl(decl, expected);
 }
+
+#[test]
+fn test_function_with_if() {
+    let decl = r#"
+fn foo():
+  if bar:
+    return 1
+  else if False:
+    return 2
+  while 1:
+    return 3
+"#;
+    let expected = "(defn foo () (do \
+                    (if bar (do (return 1)) \
+                    (if (make-struct False) (do (return 2)))) \
+                    (while 1 (do (return 3)))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_function_with_lambda() {
+    let decl = r#"
+fn counter() fn() Int:
+  let n = 0
+  return fn():
+    n = n + 1
+    return n
+"#;
+
+    let expected = "(defn counter () :: (function () (function () Int)) \
+                    (do (let n 0) \
+                    (return (lambda () (do \
+                    (assign n (binary + n 1)) \
+                    (return n))))))";
+    assert_parses_decl(decl, expected);
+}
+
+#[test]
+fn test_function_with_lambda_and_more_statements() {
+    let decl = r#"
+fn counter() fn() Int:
+  let n = 0
+  let f = fn():
+    n = n + 1
+    return n
+  return f
+"#;
+
+    let expected = "(defn counter () :: (function () (function () Int)) \
+                    (do (let n 0) \
+                    (let f (lambda () (do \
+                    (assign n (binary + n 1)) \
+                    (return n)))) \
+                    (return f)))";
+    assert_parses_decl(decl, expected);
+}
+
 
 #[test]
 fn test_struct_type_decl() {

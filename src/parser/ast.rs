@@ -533,8 +533,8 @@ impl Inspect for ClassMethod {
 
 #[derive(Debug, PartialEq)]
 pub struct Lambda {
-    arg_names: Vec<String>,
-    body: ExpressionRef,
+    pub arg_names: Vec<String>,
+    pub body: StatementRef,
 }
 
 #[cfg(test)]
