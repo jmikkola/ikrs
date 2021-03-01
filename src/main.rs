@@ -22,6 +22,7 @@ fn main() -> io::Result<()> {
             error = true;
             continue;
         }
+        // println!("tokens:  {:?}", tokens.just_tokens());
         let syntax = parse(&tokens);
         if syntax.has_errors() {
             error = true;

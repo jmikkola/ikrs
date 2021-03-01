@@ -11,6 +11,11 @@ impl Location {
         Self{col: 0, line: 0}
     }
 
+    pub fn left(&self) -> Self {
+        debug_assert!(self.col > 0);
+        Self{col: self.col - 1, line: self.line}
+    }
+
     pub fn update(&self, c: char) -> Self {
         let mut new_location = *self;
         if c == '\n' {

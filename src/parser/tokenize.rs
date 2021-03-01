@@ -17,6 +17,12 @@ impl Tokens {
         false
     }
 
+    pub fn just_tokens(&self) -> Vec<Token> {
+        self.tokens.iter()
+            .map(|(t, _)| t.clone())
+            .collect()
+    }
+
     // pub fn get_unknown(&self) -> Vec<&String> {
     //     self.tokens.iter()
     //         .filter_map(|(tok, _)| match tok {
@@ -46,6 +52,7 @@ pub fn tokenize(text: &str) -> Tokens {
         InName, // or keyword
         InType,
         InInteger,
+        IntegerDot,
         InFloat,
         InString,
         InStringEscape,
@@ -210,12 +217,24 @@ pub fn tokenize(text: &str) -> Tokens {
                     current.push(c);
                     continue;
                 } else if c == '.' {
-                    current.push(c);
-                    state = InFloat;
+                    state = IntegerDot;
                     continue;
                 }
                 let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), start_location));
+            },
+            IntegerDot => {
+                debug_assert!(!current.is_empty());
+                if c.is_ascii_digit() {
+                    current.push('.');
+                    current.push(c);
+                    state = InFloat;
+                    continue;
+                }
+
+                let n = current.parse();
+                tokens.push((Token::IntLiteral(n.unwrap()), start_location));
+                tokens.push((Token::Dot, location.left()));
             },
             InFloat => {
                 debug_assert!(!current.is_empty());
@@ -357,6 +376,11 @@ pub fn tokenize(text: &str) -> Tokens {
             InInteger => {
                 let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), start_location));
+            },
+            IntegerDot => {
+                let n = current.parse();
+                tokens.push((Token::IntLiteral(n.unwrap()), start_location));
+                tokens.push((Token::Dot, next_location.left()));
             },
             InFloat => {
                 let n = current.parse();
@@ -516,8 +540,10 @@ mod test {
     fn test_numbers() {
         assert_is_token(IntLiteral(0), "0");
         assert_is_token(IntLiteral(123), "123");
-        assert_is_token(FloatLiteral(123.), "123.");
+        assert_is_token(FloatLiteral(123.), "123.0");
         assert_is_token(FloatLiteral(3.14159), "3.14159");
+
+        assert_tokens(vec![IntLiteral(2), Dot], "2.");
     }
 
     #[test]
@@ -590,6 +616,11 @@ mod test {
         assert_untokenizes("===(+|>=>||^");
         assert_untokenizes("T234@#$%!@#$!==)(123asdfa .. ., %");
         assert_untokenizes("x  /*\n comment */ +  123");
-        assert_untokenizes("type Foo enum:\n  Bar\n  Baz // comment\n")
+        assert_untokenizes("type Foo enum:\n  Bar\n  Baz // comment\n");
+        assert_untokenizes("2.");
+        assert_untokenizes("2.2");
+        assert_untokenizes("2.to_string()");
+        assert_untokenizes("2.2.to_string()");
+        assert_untokenizes("2 . to_string()");
     }
 }
