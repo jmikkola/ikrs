@@ -250,6 +250,21 @@ else:
 }
 
 #[test]
+fn test_if_if_else() {
+    let stmt = r#"
+if x:
+  if y:
+    return 1
+else:
+  return 2
+"#;
+    let expected = "(if x \
+                    (do (if y (do (return 1)))) \
+                    (do (return 2)))";
+    assert_parses_stmt(stmt, expected);
+}
+
+#[test]
 fn test_while() {
     let stmt = "while 1:\n  return 2";
     assert_parses_stmt(stmt, "(while 1 (do (return 2)))");

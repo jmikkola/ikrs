@@ -1113,16 +1113,19 @@ impl<'a> Parser<'a> {
         let tbody = self.parse_block(indent);
 
         let ebody = if let Some((Token::KeywordElse, location)) = self.peek() {
-            self.next();
-            if location.col != indent {
+            if location.col < indent {
+                // The 'else' belongs to an outer 'if'
+                None
+            } else if location.col > indent {
                 return self.statement_error("'else' not at expected indentation");
-            }
-
-            if self.is_next(Token::KeywordIf) {
-                self.next();
-                Some(self.parse_if(indent))
             } else {
-                Some(self.parse_block(indent))
+                self.next(); // eat the 'else'
+                if self.is_next(Token::KeywordIf) {
+                    self.next();
+                    Some(self.parse_if(indent))
+                } else {
+                    Some(self.parse_block(indent))
+                }
             }
         } else {
             None

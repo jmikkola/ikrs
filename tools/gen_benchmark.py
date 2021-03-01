@@ -202,14 +202,14 @@ def gen_variable(depth=0):
 
 
 def gen_string(depth=0):
-    n_words = biased_rand4(20)
+    n_words = biased_rand4(10)
     content = ' '.join(gen_name() for _ in range(n_words))
     return '"{}"'.format(content)
 
 
 def gen_struct_expr(depth=0):
     d = depth + 1
-    n_fields = biased_rand4(8) - 1
+    n_fields = biased_rand4(4) - 1
     if n_fields == 0:
         return gen_type_name()
     fields = [(gen_name(), gen_expression(d)) for _ in range(n_fields)]
@@ -225,7 +225,7 @@ def gen_value(depth=0):
         (gen_variable, 2),
     ]
     if depth < 4:
-        options.append((gen_struct_expr, 2))
+        options.append((gen_struct_expr, 1))
     return pick_option(options)(depth)
 
 
@@ -234,7 +234,7 @@ def gen_access(depth=0):
 
 
 def gen_call(depth=0):
-    n_args = biased_rand4(5)
+    n_args = biased_rand4(4)
     args = [gen_expression(depth + 1) for _ in range(n_args)]
     return gen_term(depth + 1) + '(' + ', '.join(args) + ')'
 
@@ -247,16 +247,16 @@ def gen_term(depth):
     if depth > 4:
         return gen_value(depth)
     options = [
-        (gen_value, 5),
-        (gen_access, 1),
+        (gen_value, 10),
+        (gen_access, 2),
         (gen_call, 1),
-        (gen_offset, 1),
+        (gen_offset, 2),
     ]
     return pick_option(options)(depth)
 
 
 def gen_unary(depth):
-    n_ops = biased_rand(3) - 1
+    n_ops = biased_rand4(3) - 1
     unary_ops = ['-', '!', '~']
     ops = ''.join(random.choice(unary_ops) for _ in range(n_ops))
     return ops + gen_term(depth)
@@ -277,7 +277,7 @@ def gen_expression(depth=0):
     if depth > 4:
         return gen_unary(depth)
     options = [
-        (gen_unary, 5),
+        (gen_unary, 10),
         (gen_binary, 1),
     ]
     return pick_option(options)(depth)
@@ -406,8 +406,8 @@ def gen_decl():
 random.seed(987213498723)
 
 if __name__ == '__main__':
-    # MIN_LINES = 1_000_000
-    MIN_LINES = 50
+    MIN_LINES = 1_000_000
+    # MIN_LINES = 50000
 
     lines = []
 

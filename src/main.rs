@@ -9,6 +9,11 @@ use parser::tokenize::tokenize;
 use parser::parser::parse;
 
 fn main() -> io::Result<()> {
+    let tok_only = tokenize_only();
+    if tok_only {
+        println!("only tokenizing");
+    }
+
     let mut error = false;
     for name in env::args().skip(1) {
         println!("name: {}", name);
@@ -23,13 +28,15 @@ fn main() -> io::Result<()> {
             continue;
         }
         // println!("tokens:  {:?}", tokens.just_tokens());
-        let syntax = parse(&tokens);
-        if syntax.has_errors() {
-            error = true;
-            for e in syntax.errors.iter() {
-                println!("{}", e);
+        if !tok_only {
+            let syntax = parse(&tokens);
+            if syntax.has_errors() {
+                error = true;
+                for e in syntax.errors.iter() {
+                    println!("{}", e);
+                }
+                continue;
             }
-            continue;
         }
     }
 
@@ -37,4 +44,14 @@ fn main() -> io::Result<()> {
         std::process::exit(1);
     }
     Ok(())
+}
+
+fn tokenize_only() -> bool {
+    for (key, value) in std::env::vars() {
+        if key == "TOK_ONLY" {
+            return true;
+        }
+    }
+
+    false
 }
