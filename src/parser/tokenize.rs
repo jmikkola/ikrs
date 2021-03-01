@@ -403,27 +403,50 @@ pub fn tokenize(text: &str) -> Tokens {
 }
 
 fn name_token(name: String) -> Token {
-    match name.as_str() {
-        "class"    => Token::KeywordClass,
-        "else"     => Token::KeywordElse,
-        "enum"     => Token::KeywordEnum,
-        "extends"  => Token::KeywordExtends,
-        "fn"       => Token::KeywordFn,
-        "for"      => Token::KeywordFor,
-        "if"       => Token::KeywordIf,
-        "import"   => Token::KeywordImport,
-        "in"       => Token::KeywordIn,
-        "instance" => Token::KeywordInstance,
-        "let"      => Token::KeywordLet,
-        "match"    => Token::KeywordMatch,
-        "package"  => Token::KeywordPackage,
-        "return"   => Token::KeywordReturn,
-        "struct"   => Token::KeywordStruct,
-        "type"     => Token::KeywordType,
-        "where"    => Token::KeywordWhere,
-        "while"    => Token::KeywordWhile,
-        "with"     => Token::KeywordWith,
-        _          => Token::ValueName(name),
+    match name.len() {
+        2 => match name.as_str() {
+            "fn" => Token::KeywordFn,
+            "if" => Token::KeywordIf,
+            "in" => Token::KeywordIn,
+            _    => Token::ValueName(name),
+        },
+        3 => match name.as_str() {
+            "for" => Token::KeywordFor,
+            "let" => Token::KeywordLet,
+            _     => Token::ValueName(name),
+        },
+        4 => match name.as_str() {
+            "else" => Token::KeywordElse,
+            "enum" => Token::KeywordEnum,
+            "type" => Token::KeywordType,
+            "with" => Token::KeywordWith,
+            _      => Token::ValueName(name),
+        },
+        5 => match name.as_str() {
+            "class" => Token::KeywordClass,
+            "match" => Token::KeywordMatch,
+            "where" => Token::KeywordWhere,
+            "while" => Token::KeywordWhile,
+            _       => Token::ValueName(name),
+        },
+        6 => match name.as_str() {
+            "import" => Token::KeywordImport,
+            "return" => Token::KeywordReturn,
+            "struct" => Token::KeywordStruct,
+            _        => Token::ValueName(name),
+        },
+        7 => match name.as_str() {
+            "extends" => Token::KeywordExtends,
+            "package" => Token::KeywordPackage,
+            _         => Token::ValueName(name),
+        },
+        8 => match name.as_str() {
+            "instance" => Token::KeywordInstance,
+            _          => Token::ValueName(name),
+        },
+        _ => {
+            Token::ValueName(name)
+        },
     }
 }
 
