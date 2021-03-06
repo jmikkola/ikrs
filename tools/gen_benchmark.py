@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import os
 import random
 
 keywords = [
@@ -408,6 +409,8 @@ random.seed(987213498723)
 if __name__ == '__main__':
     MIN_LINES = 1_000_000
     # MIN_LINES = 50000
+    if 'MIN_LINES' in os.environ:
+        MIN_LINES = int(os.environ['MIN_LINES'])
 
     lines = []
 

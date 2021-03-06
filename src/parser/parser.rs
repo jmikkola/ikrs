@@ -1542,6 +1542,7 @@ impl<'a> Parser<'a> {
         self.syntax.add_expression(expr)
     }
 
+    #[inline]
     fn next(&mut self) -> Option<&'a (Token, Location)> {
         let result = self.peek();
         if result.is_some() {
@@ -1550,6 +1551,7 @@ impl<'a> Parser<'a> {
         result
     }
 
+    #[inline]
     fn next_token(&mut self) -> Option<&'a Token> {
         self.next().map(|(t, _)| t)
     }
@@ -1559,14 +1561,17 @@ impl<'a> Parser<'a> {
         self.peek().is_none()
     }
 
+    #[inline]
     fn peek(&self) -> Option<&'a (Token, Location)> {
         self.tokens.get(self.index)
     }
 
+    #[inline]
     fn peek_token(&self) -> Option<&'a Token> {
         self.peek().map(|(t, _)| t)
     }
 
+    #[inline]
     fn is_next(&self, expected: Token) -> bool {
         match self.peek() {
             None => false,
@@ -1574,6 +1579,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     fn require_next(&mut self, expected: Token) -> bool {
         match self.next() {
             None => false,
