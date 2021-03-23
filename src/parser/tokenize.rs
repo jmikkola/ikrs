@@ -5,16 +5,12 @@ use super::location::Location;
 pub struct Tokens {
     pub tokens: Vec<(Token, Location)>,
     pub comments: Vec<(Comment, Location)>,
+    saw_unknown: bool,
 }
 
 impl Tokens {
     pub fn has_unknown(&self) -> bool {
-        for (t, _) in self.tokens.iter() {
-            if let Token::Unknown(_) = t {
-                return true;
-            }
-        }
-        false
+        self.saw_unknown
     }
 
     pub fn just_tokens(&self) -> Vec<Token> {
@@ -41,6 +37,8 @@ pub fn tokenize(text: &str) -> Tokens {
     let mut start_location = Location::new();
     // Location _after_ the current charater
     let mut next_location = Location::new();
+
+    let mut saw_unknown = false;
 
     enum State {
         Start,
@@ -270,6 +268,7 @@ pub fn tokenize(text: &str) -> Tokens {
                     current.push(c);
                     continue;
                 }
+                saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
             },
         }
@@ -365,6 +364,7 @@ pub fn tokenize(text: &str) -> Tokens {
             },
             BlockComment | BlockCommentStar => {
                 // Block comment was never closed
+                saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
             },
             InName => {
@@ -388,9 +388,11 @@ pub fn tokenize(text: &str) -> Tokens {
             },
             InString | InStringEscape => {
                 // Unclosed string
+                saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
             },
             Unknown => {
+                saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
             },
         }
@@ -399,6 +401,7 @@ pub fn tokenize(text: &str) -> Tokens {
     Tokens {
         tokens: tokens,
         comments: comments,
+        saw_unknown: saw_unknown,
     }
 }
 
