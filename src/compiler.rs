@@ -5,6 +5,9 @@ use std::io;
 use super::parser::tokenize::tokenize;
 use super::parser::parser::parse;
 
+// submodules
+pub mod first_pass;
+
 // TODO: Create a set of files to work with, and topologically sort them.
 // Parse them and processes the AST in that order.
 
@@ -40,6 +43,8 @@ pub fn compile(paths: Vec<String>) -> io::Result<()> {
             }
             continue;
         }
+
+        first_pass::check(&syntax)?;
     }
 
     if error {
