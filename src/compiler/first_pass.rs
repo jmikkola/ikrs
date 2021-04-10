@@ -19,7 +19,7 @@ struct CheckState<'a> {
     syntax: &'a ast::Syntax,
     errors: Vec<String>,
 
-    binding_names: HashSet<String>,
+    // binding_names: HashSet<String>,
     imports_used: HashSet<String>,
     types_declared: HashSet<String>,
 
@@ -36,7 +36,7 @@ impl<'a> CheckState<'a> {
             syntax: syntax,
             errors: Vec::new(),
 
-            binding_names: HashSet::new(),
+            // binding_names: HashSet::new(),
             imports_used: HashSet::new(),
             types_declared: HashSet::new(),
 
@@ -74,7 +74,7 @@ impl<'a> CheckState<'a> {
             DeclarationParseError => {
                 panic!("should not see a parse error in first pass")
             },
-            PackageDecl(name) => {
+            PackageDecl(_) => {
                 self.check_package_location();
             },
             ImportDecl(names) => {
@@ -82,7 +82,7 @@ impl<'a> CheckState<'a> {
                 self.check_import_location(&import_name);
                 self.check_import_duplication(import_name);
             },
-            TypeDecl(tdecl, tdef) => {
+            TypeDecl(tdecl, _tdef) => {
                 self.saw_non_header_decl = true;
                 self.check_duplicate_type_decl(*tdecl);
                 // TODO: Check the validity of the defined type (references
@@ -90,12 +90,12 @@ impl<'a> CheckState<'a> {
                 // TODO: If the type is a class, record information for checking
                 // the class hierarchy and check method definition soundness
             },
-            FunctionDecl(func_decl) => {
+            FunctionDecl(_func_decl) => {
                 self.saw_non_header_decl = true;
                 // TODO: Check arguments
                 // TODO: Check function body
             },
-            InstanceDecl(inst_decl) => {
+            InstanceDecl(_inst_decl) => {
                 self.saw_non_header_decl = true;
                 // TODO: Check that it actually implements the class it says it does
             },

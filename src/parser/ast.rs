@@ -822,9 +822,6 @@ pub enum BinaryOp {
     Mod,
     Power,
 
-    BitAnd,
-    BitOr,
-
     BoolAnd,
     BoolOr,
 

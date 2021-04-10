@@ -13,11 +13,11 @@ impl Tokens {
         self.saw_unknown
     }
 
-    pub fn just_tokens(&self) -> Vec<Token> {
-        self.tokens.iter()
-            .map(|(t, _)| t.clone())
-            .collect()
-    }
+    // pub fn just_tokens(&self) -> Vec<Token> {
+    //     self.tokens.iter()
+    //         .map(|(t, _)| t.clone())
+    //         .collect()
+    // }
 
     // pub fn get_unknown(&self) -> Vec<&String> {
     //     self.tokens.iter()
