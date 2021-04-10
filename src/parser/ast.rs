@@ -93,7 +93,6 @@ impl Syntax {
         &self.declarations[r]
     }
 
-    #[cfg(test)]
     pub fn get_type(&self, TypeRef(r): TypeRef) -> &Type {
         &self.types[r]
     }
@@ -321,6 +320,17 @@ pub enum Type {
     TypeVar(String),
     Generic(String, Vec<TypeRef>),
     FnType(Box<FuncType>),
+}
+
+impl Type {
+    pub fn declared_name(&self) -> Option<String> {
+        use Type::*;
+        match self {
+            TypeName(s) => Some(s.clone()),
+            Generic(s, _) => Some(s.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

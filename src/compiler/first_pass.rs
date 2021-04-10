@@ -21,6 +21,7 @@ struct CheckState<'a> {
 
     binding_names: HashSet<String>,
     imports_used: HashSet<String>,
+    types_declared: HashSet<String>,
 
     // Used to keep track of advancement through the allowed ordering of declarations
     // (package?, import*, [function|type]*)
@@ -37,6 +38,8 @@ impl<'a> CheckState<'a> {
 
             binding_names: HashSet::new(),
             imports_used: HashSet::new(),
+            types_declared: HashSet::new(),
+
             package_decl_set: false,
             saw_first_decl: false,
             saw_non_header_decl: false,
@@ -81,7 +84,7 @@ impl<'a> CheckState<'a> {
             },
             TypeDecl(tdecl, tdef) => {
                 self.saw_non_header_decl = true;
-                // TODO: Check that the type defined is not duplicated
+                self.check_duplicate_type_decl(*tdecl);
                 // TODO: Check the validity of the defined type (references
                 // defined types, no duplicate fields, etc)
                 // TODO: If the type is a class, record information for checking
@@ -122,9 +125,23 @@ impl<'a> CheckState<'a> {
         if self.imports_used.contains(&import_name) {
             let err = format!("duplicate import of {}", import_name);
             self.errors.push(err);
+        } else {
+            self.imports_used.insert(import_name);
         }
+    }
 
-        self.imports_used.insert(import_name);
+    fn check_duplicate_type_decl(&mut self, tdecl: ast::TypeRef) {
+        let typ = self.syntax.get_type(tdecl);
+        if let Some(name) = typ.declared_name() {
+            if self.types_declared.contains(&name) {
+                let err = format!("duplicate type declaration: {}", name);
+                self.errors.push(err);
+            } else {
+                self.types_declared.insert(name);
+            }
+        } else {
+            panic!("types in declarations should always have names");
+        }
     }
 
     fn check_class_hierarchy(&mut self) {
