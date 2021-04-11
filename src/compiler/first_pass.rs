@@ -61,6 +61,7 @@ impl<'a> CheckState<'a> {
 
     fn check_syntax(&mut self) {
         self.gather_defined_types();
+        self.check_declarations();
         self.check_class_hierarchy();
     }
 
@@ -105,14 +106,11 @@ impl<'a> CheckState<'a> {
             },
             TypeDecl(tdecl, tdef) => {
                 self.saw_non_header_decl = true;
-                // TODO: Check the validity of the defined type (references
-                // defined types, no duplicate fields, etc)
-                // TODO: If the type is a class, record information for checking
-                // the class hierarchy and check method definition soundness
+                self.check_defined_type(&*tdef);
             },
             FunctionDecl(_func_decl) => {
                 self.saw_non_header_decl = true;
-                // TODO: Check arguments
+                // TODO: Check arguments/constraints
                 // TODO: Check function body
             },
             InstanceDecl(_inst_decl) => {
@@ -123,6 +121,7 @@ impl<'a> CheckState<'a> {
     }
 
     fn check_package_location(&mut self) {
+        println!("checking package, decl_set = {}", self.package_decl_set);
         if self.package_decl_set {
             self.add_error("duplicate package declaration");
         }
@@ -164,11 +163,149 @@ impl<'a> CheckState<'a> {
         }
     }
 
+    fn check_defined_type(&mut self, tdef: &ast::TypeDefinition) {
+        use ast::TypeDefinition::*;
+
+        match tdef {
+            Alias(tref) => {
+                self.ensure_type_is_defined(*tref);
+            },
+            Structure(struct_type) => {
+                self.check_struct_type(struct_type);
+            },
+            Enum(enum_type) => {
+                self.check_enum_type(enum_type);
+            },
+            Class(class_type) => {
+                self.check_class_type(class_type);
+            },
+        }
+        // TODO: Check the validity of the defined type (references
+        // defined types, no duplicate fields, etc)
+        // TODO: If the type is a class, record information for checking
+        // the class hierarchy and check method definition soundness
+    }
+
+    fn check_struct_type(&mut self, struct_type: &ast::StructType) {
+        // TODO: Check for duplicate fields
+        // TODO: Ensure types referenced are defined
+    }
+
+    fn check_enum_type(&mut self, enum_type: &ast::EnumType) {
+        // TODO: Check for duplicate variants
+        // TODO: Check for duplicate fields within a variant
+        // TODO: Ensure types referenced are defined
+        // TODO: Ensure variant names are not defined types
+    }
+
+    fn check_class_type(&mut self, class_type: &ast::ClassType) {
+        // TODO: Record the class definition and its superclasses
+        // TODO: Ensure method names are not duplicated
+        // TODO: Ensure method names do not overlap with other defined function names
+        // TODO: Check argument types/constraints on the methods
+    }
+
+    fn ensure_type_is_defined(&mut self, tref: ast::TypeRef) {
+        // TODO
+    }
+
     fn check_class_hierarchy(&mut self) {
         // TODO
     }
 
     fn add_error(&mut self, err: &str) {
         self.errors.push(err.to_owned());
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use regex::Regex;
+
+    use super::*;
+    use crate::parser::test_helper::tokenize_and_parse;
+
+    fn must_parse(file: &str) -> ast::Syntax {
+        tokenize_and_parse(file)
+            .expect("cannot parse example in test")
+    }
+
+    fn get_errors<'a>(file: &str) -> Vec<String> {
+        let syntax = must_parse(file);
+        let mut state = CheckState::new(&syntax);
+        state.check_syntax();
+        state.errors
+    }
+
+    fn errors_match(errors: &Vec<String>, pattern: &str) -> bool {
+        let re = Regex::new(pattern).unwrap();
+        for err in errors.iter() {
+            if re.is_match(err) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn expect_ok(file: &str) {
+        assert!(get_errors(file).is_empty());
+    }
+
+    fn expect_has_error(file: &str, pattern: &str) {
+        let errors = get_errors(file);
+        assert!(
+            errors_match(&errors, pattern),
+            "expected errors {:?} to match pattern {}",
+            errors,
+            pattern
+        );
+    }
+
+    #[test]
+    fn test_valid_package() {
+        let file = r#"
+package foo
+
+import a.b
+"#;
+        expect_ok(file);
+    }
+
+    #[test]
+    fn test_duplicate_package() {
+        let file = r#"
+package foo
+package foo
+"#;
+        expect_has_error(file, r"duplicate package declaration");
+    }
+
+    #[test]
+    fn test_package_after_other_statements() {
+        let file = r#"
+import a
+package foo
+"#;
+        expect_has_error(file, r"package declaration must be the first declaration in the file");
+    }
+
+    #[test]
+    fn test_valid_imports() {
+        let file = r#"
+import a
+import a.b
+import b.c
+import bc
+"#;
+        expect_ok(file);        
+    }
+
+    #[test]
+    fn test_duplicate_imports() {
+        let file = r#"
+import a.b.c
+import a.b.c
+"#;
+        expect_has_error(file, r"duplicate import");
     }
 }
