@@ -846,8 +846,6 @@ impl Inspect for BinaryOp {
             Divide => write!(f, "/"),
             Mod => write!(f, "%"),
             Power => write!(f, "**"),
-            BitAnd => write!(f, "&"),
-            BitOr => write!(f, "|"),
             BoolAnd => write!(f, "&&"),
             BoolOr => write!(f, "||"),
             Equal => write!(f, "=="),
