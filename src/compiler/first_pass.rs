@@ -154,7 +154,10 @@ impl<'a> CheckState<'a> {
     fn check_duplicate_type_decl(&mut self, tdecl: ast::TypeRef) {
         let typ = self.syntax.get_type(tdecl);
         if let Some(name) = typ.declared_name() {
-            if self.types_declared.contains(&name) {
+            if self.is_type_builtin(&name) {
+                let err = format!("cannot redefine builtin type {}", name);
+                self.errors.push(err);
+            } else if self.types_declared.contains(&name) {
                 let err = format!("duplicate type declaration: {}", name);
                 self.errors.push(err);
             } else {
@@ -497,6 +500,14 @@ type A enum:
     y C
 "#;
         expect_has_error(file, r"undefined type: C");
+    }
+
+    #[test]
+    fn test_cannot_redefined_builtin_type() {
+        let file = r#"
+type String Int
+"#;
+        expect_has_error(file, r"cannot redefine builtin type String");
     }
 
 // TODO
