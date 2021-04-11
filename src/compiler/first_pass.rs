@@ -297,7 +297,7 @@ import a.b
 import b.c
 import bc
 "#;
-        expect_ok(file);        
+        expect_ok(file);
     }
 
     #[test]
@@ -307,5 +307,34 @@ import a.b.c
 import a.b.c
 "#;
         expect_has_error(file, r"duplicate import");
+    }
+
+    #[test]
+    fn test_import_after_other_declarations() {
+        let file = r#"
+import a
+fn foo():
+  return
+import b
+"#;
+        expect_has_error(file, r"import statement must be above other declarations: import b");
+    }
+
+    #[test]
+    fn test_valid_type_declaration() {
+        let file = r#"
+type Length Int
+type Name String
+"#;
+        expect_ok(file);
+    }
+
+    #[test]
+    fn test_duplicate_type_declaration() {
+        let file = r#"
+type Length Int
+type Length Int
+"#;
+        expect_has_error(file, r"duplicate type declaration: Length");
     }
 }
