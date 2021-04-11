@@ -9,6 +9,8 @@ use super::super::parser::ast;
 // - Structure, class, and implementation declarations are well-formed
 // - Multiple class definitions do not use overlapping method names
 // - The class hierarchy is acyclic
+// - The right number of generic args are passed to each type
+// - And more
 pub fn check(syntax: &ast::Syntax) -> io::Result<()> {
     let mut state = CheckState::new(syntax);
     state.check_syntax();
@@ -106,7 +108,7 @@ impl<'a> CheckState<'a> {
             },
             TypeDecl(tdecl, tdef) => {
                 self.saw_non_header_decl = true;
-                self.check_defined_type(&*tdef);
+                self.check_defined_type(*tdecl, &*tdef);
             },
             FunctionDecl(_func_decl) => {
                 self.saw_non_header_decl = true;
@@ -163,12 +165,12 @@ impl<'a> CheckState<'a> {
         }
     }
 
-    fn check_defined_type(&mut self, tdef: &ast::TypeDefinition) {
+    fn check_defined_type(&mut self, defined: ast::TypeRef, tdef: &ast::TypeDefinition) {
         use ast::TypeDefinition::*;
 
         match tdef {
             Alias(tref) => {
-                self.ensure_type_is_defined(*tref);
+                self.check_alias_type(defined, *tref);
             },
             Structure(struct_type) => {
                 self.check_struct_type(struct_type);
@@ -180,24 +182,60 @@ impl<'a> CheckState<'a> {
                 self.check_class_type(class_type);
             },
         }
-        // TODO: Check the validity of the defined type (references
-        // defined types, no duplicate fields, etc)
-        // TODO: If the type is a class, record information for checking
-        // the class hierarchy and check method definition soundness
+    }
+
+    fn check_alias_type(&mut self, defined: ast::TypeRef, tref: ast::TypeRef) {
+        self.ensure_type_is_defined(tref);
+        // Check if this is a self-referential alias
+        // (e.g. `type A A`, or `type A Option<A>`)
+        // TODO: This should really also disallow alias cycles
+        // (e.g. `type A B; type B A`)
+
+        let name = self.syntax.get_type(defined).declared_name()
+            .expect("should have already checked this in check_duplicate_type_decl");
     }
 
     fn check_struct_type(&mut self, struct_type: &ast::StructType) {
-        // TODO: Check for duplicate fields
-        // TODO: Ensure types referenced are defined
+        let mut fields = HashSet::new();
+        for (name, tref) in struct_type.fields.iter() {
+            if !fields.insert(name.clone()) {
+                let err = format!("duplicate struct field: {}", name);
+                self.errors.push(err);
+            }
+            self.ensure_type_is_defined(*tref);
+        }
     }
 
+    // Check that:
+    // * variant names are not duplicated
+    // * fields within a variant are not duplicated
+    // * types in a field are defined
+    // * (TODO) variant names do not overlap with defined types
     fn check_enum_type(&mut self, enum_type: &ast::EnumType) {
-        // TODO: Check for duplicate variants
-        // TODO: Check for duplicate fields within a variant
-        // TODO: Ensure types referenced are defined
+        let mut variants = HashSet::new();
+        for variant in enum_type.variants.iter() {
+            if !variants.insert(variant.name.clone()) {
+                let err = format!("duplicate enum variant: {}", variant.name);
+                self.errors.push(err);
+            }
+
+            let mut fields = HashSet::new();
+            for (name, tref) in variant.content.fields.iter() {
+                if !fields.insert(name.clone()) {
+                    let err = format!(
+                        "duplicate enum field: {} in variant {}",
+                        name, variant.name);
+                    self.errors.push(err);
+                }
+                self.ensure_type_is_defined(*tref);
+            }
+        }
+
         // TODO: Ensure variant names are not defined types
     }
 
+    // TODO: If the type is a class, record information for checking
+    // the class hierarchy and check method definition soundness
     fn check_class_type(&mut self, class_type: &ast::ClassType) {
         // TODO: Record the class definition and its superclasses
         // TODO: Ensure method names are not duplicated
@@ -206,11 +244,65 @@ impl<'a> CheckState<'a> {
     }
 
     fn ensure_type_is_defined(&mut self, tref: ast::TypeRef) {
-        // TODO
+        use ast::Type::*;
+
+        let typ = self.syntax.get_type(tref);
+
+        match typ {
+            TypeParseError => {
+                panic!("should not see a parse error in first pass")
+            },
+            Void => {},
+            TypeName(name) => {
+                if !self.is_type_defined(name) {
+                    let err = format!("undefined type: {}", name);
+                    self.errors.push(err);
+                }
+            },
+            TypeVar(_var) => {
+                // TODO: Ensure type vars are in scope
+            },
+            Generic(name, trefs) => {
+                if !self.is_type_defined(name) {
+                    let err = format!("undefined type: {}", name);
+                    self.errors.push(err);
+                }
+                for tref in trefs.iter() {
+                    self.ensure_type_is_defined(*tref);
+                }
+            },
+            FnType(func_type) => {
+                for tref in func_type.arg_types.iter() {
+                    self.ensure_type_is_defined(*tref);
+                }
+                self.ensure_type_is_defined(func_type.ret_type);
+                // TODO: Ensure func_type.constraints are defined classes
+            },
+        }
     }
 
     fn check_class_hierarchy(&mut self) {
         // TODO
+    }
+
+    fn is_type_defined(&self, typ: &String) -> bool {
+        self.is_type_builtin(typ) || self.is_type_defined_in_module(typ)
+    }
+
+    fn is_type_defined_in_module(&self, typ: &String) -> bool {
+        self.types_declared.contains(typ)
+    }
+
+    fn is_type_builtin(&self, typ: &String) -> bool {
+        match typ.as_str() {
+            "Bool" => true,
+            "Char" => true,
+            "Float" => true,
+            "Int" => true,
+            "Option" => true,
+            "String" => true,
+            _ => false,
+        }
     }
 
     fn add_error(&mut self, err: &str) {
@@ -337,4 +429,82 @@ type Length Int
 "#;
         expect_has_error(file, r"duplicate type declaration: Length");
     }
+
+    #[test]
+    fn test_valid_reference_type_defined_in_module() {
+        let file = r#"
+type B A
+type A Int
+"#;
+        expect_ok(file);
+    }
+
+    #[test]
+    fn test_alias_to_undefined_type() {
+        let file = r#"
+type A Int
+type B C
+"#;
+        expect_has_error(file, r"undefined type: C");
+    }
+
+    #[test]
+    fn test_valid_struct_definition() {
+        let file = r#"
+type B<t> struct:
+  t t
+  a A
+type A Int
+"#;
+        expect_ok(file);
+    }
+
+    #[test]
+    fn test_valid_self_referential_struct() {
+        let file = r#"
+type B struct:
+  value Int
+  next B
+"#;
+        expect_ok(file);
+    }
+
+    #[test]
+    fn test_struct_with_undefined_type() {
+        let file = r#"
+type A struct:
+  foo C
+"#;
+        expect_has_error(file, r"undefined type: C");
+    }
+
+    #[test]
+    fn test_struct_involving_undefined_type() {
+        let file = r#"
+type A struct:
+  foo fn(C) Int
+"#;
+        expect_has_error(file, r"undefined type: C");
+    }
+
+    #[test]
+    fn test_enum_referencing_undefined_type() {
+        let file = r#"
+type A enum:
+  Left:
+    x Int
+  Right:
+    y C
+"#;
+        expect_has_error(file, r"undefined type: C");
+    }
+
+// TODO
+//     #[test]
+//     fn test_recursive_alias() {
+//         let file = r#"
+// type A A
+// "#;
+//         expect_has_error(file, r"self-referential type alias");
+//     }
 }
