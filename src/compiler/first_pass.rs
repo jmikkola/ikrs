@@ -60,11 +60,32 @@ impl<'a> CheckState<'a> {
     }
 
     fn check_syntax(&mut self) {
+        self.gather_defined_types();
+        self.check_class_hierarchy();
+    }
+
+    // Gather the names of defined types before checking declarations so we can
+    // tell if they refer to any types that don't actually exist.
+    fn gather_defined_types(&mut self) {
+        use ast::Declaration::*;
+
+        for declaration in self.syntax.declarations.iter() {
+            match declaration {
+                TypeDecl(tdecl, _) => {
+                    // as a side-effect, this writes the type decl to
+                    // self.types_declared
+                    self.check_duplicate_type_decl(*tdecl);
+                },
+                _ => {},
+            }
+        }
+    }
+
+    fn check_declarations(&mut self) {
         for declaration in self.syntax.declarations.iter() {
             self.check_declaration(declaration);
             self.saw_first_decl = true;
         }
-        self.check_class_hierarchy();
     }
 
     fn check_declaration(&mut self, declaration: &ast::Declaration) {
@@ -82,9 +103,8 @@ impl<'a> CheckState<'a> {
                 self.check_import_location(&import_name);
                 self.check_import_duplication(import_name);
             },
-            TypeDecl(tdecl, _tdef) => {
+            TypeDecl(tdecl, tdef) => {
                 self.saw_non_header_decl = true;
-                self.check_duplicate_type_decl(*tdecl);
                 // TODO: Check the validity of the defined type (references
                 // defined types, no duplicate fields, etc)
                 // TODO: If the type is a class, record information for checking
