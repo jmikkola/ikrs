@@ -15,9 +15,8 @@ pub mod first_pass;
 // assembly?) so that it could compile large programs without keeping everything
 // in memory, but there won't be any point for a long time.
 
-pub fn compile(paths: Vec<String>) -> io::Result<()> {
-    let tok_only = tokenize_only();
-    if tok_only {
+pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
+    if tokenize_only {
         println!("only tokenizing");
     }
 
@@ -31,7 +30,7 @@ pub fn compile(paths: Vec<String>) -> io::Result<()> {
             continue;
         }
 
-        if tok_only {
+        if tokenize_only {
             continue;
         }
 
@@ -61,15 +60,4 @@ fn read_path(path: &String) -> io::Result<String> {
     let mut contents = String::new();
     reader.read_to_string(&mut contents)?;
     Ok(contents)
-
-}
-
-fn tokenize_only() -> bool {
-    for (key, _value) in std::env::vars() {
-        if key == "TOK_ONLY" {
-            return true;
-        }
-    }
-
-    false
 }

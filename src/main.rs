@@ -2,7 +2,6 @@ use std::io;
 use std::path::Path;
 
 extern crate argparse;
-use argparse::{ArgumentParser, Collect};
 
 extern crate walkdir;
 use walkdir::WalkDir;
@@ -11,10 +10,10 @@ mod compiler;
 mod parser;
 
 fn main() -> io::Result<()> {
-    let root_paths = parse_args();
-    let paths = expand_paths(root_paths);
+    let args = Args::parse();
+    let paths = expand_paths(args.paths);
 
-    let result = compiler::compile(paths);
+    let result = compiler::compile(paths, args.tokenize_only);
     if let Err(error) = result {
         eprintln!("{}", error);
         std::process::exit(1);
@@ -24,6 +23,8 @@ fn main() -> io::Result<()> {
 }
 
 fn expand_paths(roots: Vec<String>) -> Vec<String> {
+    // TODO: Try to ensure that the caller doesn't pass more than one directory,
+    // and only passes .ik files if no directory is passed.
     let mut file_paths = Vec::new();
 
     for root in roots {
@@ -67,20 +68,44 @@ fn find_ik_files_in_directory(root: &String) -> Vec<String> {
     paths
 }
 
-fn parse_args() -> Vec<String> {
-    let mut paths = Vec::new();
-    {
-        let mut ap = ArgumentParser::new();
-        ap.set_description("ikrs compiler");
-        ap.refer(&mut paths)
-            .add_argument("paths", Collect, "path to a directory containing a project or a single .ik file");
-        ap.parse_args_or_exit();
+struct Args {
+    paths: Vec<String>,
+    tokenize_only: bool,
+}
+
+impl Args {
+    fn new() -> Self {
+        Args{
+            paths: Vec::new(),
+            tokenize_only: false,
+        }
     }
 
-    if paths.is_empty() {
-        eprintln!("pass at least one path");
-        std::process::exit(1);
-    }
+    // Parse CLI arguments. This may exit.
+    fn parse() -> Self {
+        use argparse::{ArgumentParser, Collect, StoreTrue};
 
-    paths
+        let mut args = Args::new();
+
+        {
+            let mut ap = ArgumentParser::new();
+            ap.set_description("ikrs compiler");
+            ap.refer(&mut args.tokenize_only).add_option(
+                &["--tokenize-only"],
+                StoreTrue,
+                "Only tokenize");
+            ap.refer(&mut args.paths).add_argument(
+                "paths",
+                Collect,
+                "path to a directory containing a project or a single .ik file");
+            ap.parse_args_or_exit();
+        }
+
+        if args.paths.is_empty() {
+            eprintln!("pass at least one path");
+            std::process::exit(1);
+        }
+
+        args
+    }
 }
