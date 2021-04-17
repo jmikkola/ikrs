@@ -123,7 +123,6 @@ impl<'a> CheckState<'a> {
     }
 
     fn check_package_location(&mut self) {
-        println!("checking package, decl_set = {}", self.package_decl_set);
         if self.package_decl_set {
             self.add_error("duplicate package declaration");
         }
