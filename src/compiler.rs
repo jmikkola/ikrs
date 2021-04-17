@@ -1,12 +1,16 @@
 use std::fs::File;
 use std::io::prelude::*;
 use std::io;
+use std::path;
 
 use super::parser::tokenize::tokenize;
 use super::parser::parser::parse;
 
 // submodules
 pub mod first_pass;
+#[cfg(test)]
+mod test;
+
 
 // TODO: Create a set of files to work with, and topologically sort them.
 // Parse them and processes the AST in that order.
@@ -19,6 +23,20 @@ pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
     if tokenize_only {
         println!("only tokenizing");
     }
+
+    let mut packages = GroupedPackages::group(&paths)?;
+    packages.parse_files(tokenize_only)?;
+
+    if tokenize_only {
+        return Ok(());
+    }
+
+    packages.check_declared_names()?;
+    packages.check_import_cycles()?;
+    packages.first_pass()?;
+    // infer types
+    // lower
+    // codegen
 
     let mut error = false;
     for path in paths.iter() {
@@ -52,6 +70,85 @@ pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct GroupedPackages {
+    packaged_files: Vec<PackageFiles>,
+}
+
+#[derive(Debug)]
+struct PackageFiles {
+    package_name: String,
+    file_paths: Vec<String>,
+}
+
+impl GroupedPackages {
+    fn new() -> Self {
+        GroupedPackages{
+            packaged_files: vec![],
+        }
+    }
+
+    fn group(paths: &Vec<String>) -> io::Result<Self> {
+        let mut grouped = Self::new();
+
+        for filename in paths.iter() {
+            let package_path = get_package_path(filename);
+            grouped.add_file_to_package(package_path, filename);
+        }
+
+        Ok(grouped)
+    }
+
+    fn add_file_to_package(&mut self, package_path: String, filename: &String) {
+        for pck in self.packaged_files.iter_mut() {
+            if pck.package_name == package_path {
+                pck.file_paths.push(filename.clone());
+                return;
+            }
+        }
+
+        self.packaged_files.push(PackageFiles{
+            package_name: package_path,
+            file_paths: vec![filename.clone()],
+        });
+    }
+
+    fn parse_files(&mut self, tokenize_only: bool) -> io::Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    fn check_declared_names(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn check_import_cycles(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn first_pass(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn get_package_path(path: &String) -> String {
+    let mut parts: Vec<String> = path::Path::new(path).components()
+        .filter_map(|component| {
+            if let path::Component::Normal(osstr) = component {
+                Some(osstr.to_str().unwrap().to_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+    // Remove the filename
+    parts.pop();
+    if parts.is_empty() {
+        return "main".to_owned();
+    }
+    parts.join(".")
 }
 
 fn read_path(path: &String) -> io::Result<String> {

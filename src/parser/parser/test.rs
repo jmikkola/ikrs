@@ -29,7 +29,7 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
     let to_trim: &[_] = &[' ', '\n'];
     let trimmed = input.trim_start_matches(to_trim);
 
-    let tokens = tokenize(input);
+    let tokens = tokenize(trimmed);
     let mut parser = Parser::new(&tokens.tokens);
 
     parser.parse_file();
