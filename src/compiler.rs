@@ -83,6 +83,19 @@ struct Package {
     file_paths: Vec<String>,
 }
 
+impl Package {
+    fn new(package_name: String) -> Self {
+        Package{
+            package_name: package_name,
+            file_paths: Vec::new(),
+        }
+    }
+
+    fn add_file_path(&mut self, filename: String) {
+        self.file_paths.push(filename);
+    }
+}
+
 impl CompileJob {
     fn new() -> Self {
         CompileJob{
@@ -109,10 +122,9 @@ impl CompileJob {
             }
         }
 
-        self.packaged_files.push(Package{
-            package_name: package_path,
-            file_paths: vec![filename.clone()],
-        });
+        let mut pkg = Package::new(package_path);
+        pkg.add_file_path(filename.clone());
+        self.packaged_files.push(pkg);
     }
 
     fn parse_files(&mut self, tokenize_only: bool) -> io::Result<()> {
