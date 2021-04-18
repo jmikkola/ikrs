@@ -784,7 +784,7 @@ pub enum Literal {
 
 #[cfg(test)]
 impl Inspect for Literal {
-    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+    fn inspect(&self, f: &mut impl fmt::Write, _s: &Syntax) -> fmt::Result {
         use Literal::*;
         match self {
             Integer(n) => write!(f, "{}", n),
@@ -803,7 +803,7 @@ pub enum UnaryOp {
 
 #[cfg(test)]
 impl Inspect for UnaryOp {
-    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+    fn inspect(&self, f: &mut impl fmt::Write, _s: &Syntax) -> fmt::Result {
         use UnaryOp::*;
         match self{
             BoolNot => write!(f, "!"),
@@ -837,7 +837,7 @@ pub enum BinaryOp {
 
 #[cfg(test)]
 impl Inspect for BinaryOp {
-    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+    fn inspect(&self, f: &mut impl fmt::Write, _s: &Syntax) -> fmt::Result {
         use BinaryOp::*;
         match self {
             Plus => write!(f, "+"),
@@ -860,7 +860,7 @@ impl Inspect for BinaryOp {
 
 #[cfg(test)]
 impl Inspect for String {
-    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+    fn inspect(&self, f: &mut impl fmt::Write, _s: &Syntax) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
@@ -875,7 +875,7 @@ where T: Inspect {
             write!(f, " ")?;
         }
         wrote_first = true;
-        item.inspect(f, s);
+        item.inspect(f, s)?;
     }
     write!(f, ")")
 }
