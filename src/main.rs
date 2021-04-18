@@ -11,9 +11,9 @@ mod parser;
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
-    let paths = expand_paths(args.paths);
+    let (paths, base_path) = expand_paths(args.path);
 
-    let result = compiler::compile(paths, args.tokenize_only);
+    let result = compiler::compile(paths, &base_path, args.tokenize_only);
     if let Err(error) = result {
         eprintln!("{}", error);
         std::process::exit(1);
@@ -22,26 +22,25 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn expand_paths(roots: Vec<String>) -> Vec<String> {
+fn expand_paths(root: String) -> (Vec<String>, String) {
     // TODO: Try to ensure that the caller doesn't pass more than one directory,
     // and only passes .ik files if no directory is passed.
     let mut file_paths = Vec::new();
 
-    for root in roots {
-        let path = Path::new(root.as_str());
-        if path.is_dir() {
-            let paths_under_dir = find_ik_files_in_directory(&root);
-            if paths_under_dir.is_empty() {
-                eprintln!("no files found under {}", root);
-                std::process::exit(1);
-            }
-            file_paths.extend(paths_under_dir);
-        } else {
-            file_paths.push(root);
+    let path = Path::new(root.as_str());
+    if path.is_dir() {
+        let paths_under_dir = find_ik_files_in_directory(&root);
+        if paths_under_dir.is_empty() {
+            eprintln!("no files found under {}", root);
+            std::process::exit(1);
         }
+        file_paths.extend(paths_under_dir);
+        (file_paths, root)
+    } else {
+        let base_dir = path.parent().unwrap().to_str().unwrap().to_string();
+        file_paths.push(root);
+        (file_paths, base_dir)
     }
-
-    file_paths
 }
 
 // when passed a project directory, walk that directory tree to find the .ik
@@ -69,21 +68,21 @@ fn find_ik_files_in_directory(root: &String) -> Vec<String> {
 }
 
 struct Args {
-    paths: Vec<String>,
+    path: String,
     tokenize_only: bool,
 }
 
 impl Args {
     fn new() -> Self {
         Args{
-            paths: Vec::new(),
+            path: String::new(),
             tokenize_only: false,
         }
     }
 
     // Parse CLI arguments. This may exit.
     fn parse() -> Self {
-        use argparse::{ArgumentParser, Collect, StoreTrue};
+        use argparse::{ArgumentParser, Store, StoreTrue};
 
         let mut args = Args::new();
 
@@ -94,15 +93,15 @@ impl Args {
                 &["--tokenize-only"],
                 StoreTrue,
                 "Only tokenize");
-            ap.refer(&mut args.paths).add_argument(
-                "paths",
-                Collect,
+            ap.refer(&mut args.path).add_argument(
+                "path",
+                Store,
                 "path to a directory containing a project or a single .ik file");
             ap.parse_args_or_exit();
         }
 
-        if args.paths.is_empty() {
-            eprintln!("pass at least one path");
+        if args.path.is_empty() {
+            eprintln!("path argument is required");
             std::process::exit(1);
         }
 

@@ -12,16 +12,19 @@ fn get_package<'a>(gp: &'a CompileJob, name: &str) -> Option<&'a Package> {
 #[test]
 fn test_get_package_path() {
     let cases = vec![
-        ("foo.ik", "main"),
-        ("main.ik", "main"),
-        ("./main.ik", "main"),
-        ("foo/main.ik", "foo"),
-        ("foo/bar/baz/x.ik", "foo.bar.baz"),
-        ("./foo/bar/baz/x.ik", "foo.bar.baz"),
+        ("foo.ik", "", "main"),
+        ("main.ik", "", "main"),
+        ("./main.ik", "", "main"),
+        ("foo/main.ik", "", "foo"),
+        ("foo/main.ik", "foo/", "main"),
+        ("foo/bar/baz/x.ik", "", "foo.bar.baz"),
+        ("./foo/bar/baz/x.ik", "", "foo.bar.baz"),
+        ("./foo/bar/baz/x.ik", "./foo", "bar.baz"),
+        ("./foo/bar/baz/x.ik", "./foo/bar", "baz"),
     ];
 
-    for (input, expected) in cases {
-        assert!(expected == get_package_path(&input.to_string()));
+    for (input, base, expected) in cases {
+        assert!(expected == get_package_path(&input.to_string(), &base.to_string()));
     }
 }
 
@@ -34,7 +37,7 @@ fn test_grouping_files() {
         .map(|s| s.to_string())
         .collect();
 
-    let result = CompileJob::gather_files(&paths).unwrap();
+    let result = CompileJob::gather_files(&paths, &"".to_owned()).unwrap();
 
     assert!(result.packages.len() == 3);
 

@@ -20,12 +20,12 @@ mod test;
 // assembly?) so that it could compile large programs without keeping everything
 // in memory, but there won't be any point for a long time.
 
-pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
+pub fn compile(paths: Vec<String>, base_path: &String, tokenize_only: bool) -> io::Result<()> {
     if tokenize_only {
         println!("only tokenizing");
     }
 
-    let mut packages = CompileJob::gather_files(&paths)?;
+    let mut packages = CompileJob::gather_files(&paths, base_path)?;
     packages.parse_files(tokenize_only)?;
 
     if tokenize_only {
@@ -133,6 +133,8 @@ impl Package {
     fn check_declared_names(&self) -> io::Result<()> {
         let allowed_to_skip_package_decl = self.package_name == "main";
 
+        let expected_name = self.package_name.split(".").last().unwrap();
+
         for syntax in self.syntaxes.iter() {
             let first_decl = if let Some(decl) = syntax.declarations.get(0) {
                 decl
@@ -142,17 +144,17 @@ impl Package {
             };
 
             if let ast::Declaration::PackageDecl(name) = first_decl {
-                if *name != self.package_name {
+                if *name != expected_name {
                     eprintln!(
                         "file {} should declare package {} but declares package {} instead",
-                        syntax.filename, self.package_name, name);
+                        syntax.filename, expected_name, name);
                     let err = io::Error::new(io::ErrorKind::Other, "error");
                     return Err(err);
                 }
             } else if !allowed_to_skip_package_decl {
                 eprintln!(
                     "file {} should declare package {} but doesn't",
-                    syntax.filename, self.package_name);
+                    syntax.filename, expected_name);
                 let err = io::Error::new(io::ErrorKind::Other, "error");
                 return Err(err);
             }
@@ -168,11 +170,11 @@ impl CompileJob {
         }
     }
 
-    fn gather_files(paths: &Vec<String>) -> io::Result<Self> {
+    fn gather_files(paths: &Vec<String>, base_path: &String) -> io::Result<Self> {
         let mut grouped = Self::new();
 
         for filename in paths.iter() {
-            let package_path = get_package_path(filename);
+            let package_path = get_package_path(filename, base_path);
             grouped.add_file_to_package(package_path, filename);
         }
 
@@ -215,9 +217,11 @@ impl CompileJob {
     }
 }
 
-// TODO: Support finding base paths to the project (e.g. strip off the passed in directory)
-fn get_package_path(path: &String) -> String {
-    let mut parts: Vec<String> = path::Path::new(path).components()
+fn get_package_path(path: &String, base_path: &String) -> String {
+    let mut parts: Vec<String> = path::Path::new(path)
+        .strip_prefix(base_path)
+        .unwrap()
+        .components()
         .filter_map(|component| {
             if let path::Component::Normal(osstr) = component {
                 Some(osstr.to_str().unwrap().to_owned())
