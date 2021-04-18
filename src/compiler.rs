@@ -24,7 +24,7 @@ pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
         println!("only tokenizing");
     }
 
-    let mut packages = GroupedPackages::group(&paths)?;
+    let mut packages = CompileJob::gather_files(&paths)?;
     packages.parse_files(tokenize_only)?;
 
     if tokenize_only {
@@ -73,24 +73,24 @@ pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
 }
 
 #[derive(Debug)]
-struct GroupedPackages {
-    packaged_files: Vec<PackageFiles>,
+struct CompileJob {
+    packaged_files: Vec<Package>,
 }
 
 #[derive(Debug)]
-struct PackageFiles {
+struct Package {
     package_name: String,
     file_paths: Vec<String>,
 }
 
-impl GroupedPackages {
+impl CompileJob {
     fn new() -> Self {
-        GroupedPackages{
+        CompileJob{
             packaged_files: vec![],
         }
     }
 
-    fn group(paths: &Vec<String>) -> io::Result<Self> {
+    fn gather_files(paths: &Vec<String>) -> io::Result<Self> {
         let mut grouped = Self::new();
 
         for filename in paths.iter() {
@@ -109,7 +109,7 @@ impl GroupedPackages {
             }
         }
 
-        self.packaged_files.push(PackageFiles{
+        self.packaged_files.push(Package{
             package_name: package_path,
             file_paths: vec![filename.clone()],
         });

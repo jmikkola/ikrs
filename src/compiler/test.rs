@@ -1,6 +1,6 @@
 use super::*;
 
-fn get_package<'a>(gp: &'a GroupedPackages, name: &str) -> Option<&'a PackageFiles> {
+fn get_package<'a>(gp: &'a CompileJob, name: &str) -> Option<&'a Package> {
     for pf in gp.packaged_files.iter() {
         if pf.package_name == name {
             return Some(pf);
@@ -18,7 +18,7 @@ fn test_grouping_files() {
         .map(|s| s.to_string())
         .collect();
 
-    let result = GroupedPackages::group(&paths).unwrap();
+    let result = CompileJob::gather_files(&paths).unwrap();
 
     assert!(result.packaged_files.len() == 3);
 
