@@ -1,6 +1,7 @@
 // module graph
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::collections::LinkedList;
 use std::hash::Hash;
 
 // This could probably be much more efficient by borrowing all values
@@ -9,7 +10,7 @@ pub struct Graph<A> {
     edges: HashMap<A, HashSet<A>>,
 }
 
-impl<A: Eq + Hash + Clone + std::fmt::Debug> Graph<A> {
+impl<A: Eq + Hash + Clone> Graph<A> {
     pub fn new() -> Self {
         Graph{
             nodes: HashSet::new(),
@@ -33,6 +34,62 @@ impl<A: Eq + Hash + Clone + std::fmt::Debug> Graph<A> {
             to_set.insert(to);
             self.edges.insert(from, to_set);
         }
+    }
+
+    pub fn get_topo_ordering(&self) -> Option<Vec<Vec<A>>> {
+        let mut num_dependencies = self.get_num_dependences();
+        let reversed = self.reverse();
+
+        let mut nodes_to_process = LinkedList::new();
+        for (node, count) in num_dependencies.iter() {
+            if *count == 0 {
+                nodes_to_process.push_front(node.clone());
+            }
+        }
+
+        let mut nodes_processed = 0;
+        let mut remaining_in_group = nodes_to_process.len();
+        let mut groups = vec![];
+        let mut group = vec![];
+
+        while let Some(node) = nodes_to_process.pop_back() {
+            nodes_processed += 1;
+
+            if let Some(parents) = reversed.edges.get(&node) {
+                for parent in parents.iter() {
+                    let new_count = num_dependencies[parent] - 1;
+                    num_dependencies.insert(parent.clone(), new_count);
+                    if new_count == 0 {
+                        nodes_to_process.push_front(parent.clone());
+                    }
+                }
+            }
+
+            group.push(node.clone());
+            remaining_in_group -= 1;
+            if remaining_in_group == 0 {
+                groups.push(group);
+                group = vec![];
+                remaining_in_group = nodes_to_process.len();
+            }
+        }
+
+        if nodes_processed < self.nodes.len() {
+            None
+        } else {
+            Some(groups)
+        }
+    }
+
+    fn get_num_dependences(&self) -> HashMap<A, usize> {
+        let mut counts = HashMap::new();
+        for node in self.nodes.iter() {
+            counts.insert(node.clone(), 0);
+        }
+        for (from, to_set) in self.edges.iter() {
+            counts.insert(from.clone(), to_set.len());
+        }
+        counts
     }
 
     pub fn reverse(&self) -> Self {
@@ -207,4 +264,39 @@ mod test {
         cycles.sort();
         assert!(cycles == expected);
     }
+
+    #[test]
+    fn test_get_topo_ordering_when_cycles() {
+        let description = vec![
+            (1, vec![2]),
+            (2, vec![3, 5, 6]),
+            (3, vec![4, 7]),
+            (4, vec![3, 8]),
+            (5, vec![1, 6]),
+            (6, vec![7]),
+            (7, vec![6]),
+            (8, vec![4, 7]),
+        ];
+        assert!(build_graph(description).get_topo_ordering().is_none());
+    }
+
+    #[test]
+    fn test_get_topo_ordering_dag() {
+        let description = vec![
+            (1, vec![11, 12, 13]),
+            (11, vec![104, 105, 106]),
+            (12, vec![104, 105]),
+            (13, vec![1009]),
+            (105, vec![1009]),
+        ];
+
+        let mut ordering = build_graph(description).get_topo_ordering().unwrap();
+        for group in ordering.iter_mut() {
+            group.sort();
+        }
+
+        let expected = vec![vec![104, 106, 1009], vec![13, 105], vec![11, 12], vec![1]];
+        assert!(expected == ordering);
+    }
+
 }
