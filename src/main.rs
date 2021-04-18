@@ -8,6 +8,7 @@ use walkdir::WalkDir;
 
 mod compiler;
 mod parser;
+mod util;
 
 fn main() -> io::Result<()> {
     let args = Args::parse();

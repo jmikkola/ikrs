@@ -193,7 +193,7 @@ impl<'a> CheckState<'a> {
         // TODO: This should really also disallow alias cycles
         // (e.g. `type A B; type B A`)
 
-        let name = self.syntax.get_type(defined).declared_name()
+        let _name = self.syntax.get_type(defined).declared_name()
             .expect("should have already checked this in check_duplicate_type_decl");
     }
 
@@ -238,7 +238,7 @@ impl<'a> CheckState<'a> {
 
     // TODO: If the type is a class, record information for checking
     // the class hierarchy and check method definition soundness
-    fn check_class_type(&mut self, class_type: &ast::ClassType) {
+    fn check_class_type(&mut self, _class_type: &ast::ClassType) {
         // TODO: Record the class definition and its superclasses
         // TODO: Ensure method names are not duplicated
         // TODO: Ensure method names do not overlap with other defined function names
