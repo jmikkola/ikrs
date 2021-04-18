@@ -6,6 +6,7 @@ use std::path;
 use super::parser::tokenize::tokenize;
 use super::parser::parser::parse;
 use super::parser::ast;
+use super::util::graph::Graph;
 
 // submodules
 pub mod first_pass;
@@ -33,11 +34,6 @@ pub fn compile(paths: Vec<String>, base_path: &String, tokenize_only: bool) -> i
     // codegen
 
     Ok(())
-}
-
-#[derive(Debug)]
-struct CompileJob {
-    packages: Vec<Package>,
 }
 
 #[derive(Debug)]
@@ -124,6 +120,17 @@ impl Package {
         Ok(())
     }
 
+    fn add_import_edges(&self, graph: &mut Graph<String>) {
+        for syntax in self.syntaxes.iter() {
+            for decl in syntax.declarations.iter() {
+                if let ast::Declaration::ImportDecl(names) = decl {
+                    let name = names.join(".");
+                    graph.add_edge(self.package_name.clone(), name);
+                }
+            }
+        }
+    }
+
     fn first_pass(&self) -> io::Result<()> {
         for syntax in self.syntaxes.iter() {
             first_pass::check(syntax)?;
@@ -132,10 +139,17 @@ impl Package {
     }
 }
 
+#[derive(Debug)]
+struct CompileJob {
+    packages: Vec<Package>,
+    package_ordering: Vec<Vec<String>>,
+}
+
 impl CompileJob {
     fn new() -> Self {
         CompileJob{
             packages: vec![],
+            package_ordering: vec![],
         }
     }
 
@@ -178,8 +192,30 @@ impl CompileJob {
     }
 
     fn check_import_cycles(&mut self) -> io::Result<()> {
-        // TODO: Determine and store the topological ordering
+        let graph = self.build_import_graph();
+
+        if let Some(ordering) = graph.get_topo_ordering() {
+            self.package_ordering = ordering;
+        } else {
+            let cycles = graph.find_cycles();
+            eprintln!("found cycles in the import graph");
+            for cycle in cycles.iter() {
+                eprintln!("  cycle: {:?}", cycle);
+            }
+            let err = io::Error::new(io::ErrorKind::Other, "error");
+            return Err(err);
+        }
+
         Ok(())
+    }
+
+    fn build_import_graph(&self) -> Graph<String> {
+        let mut graph = Graph::new();
+        for pkg in self.packages.iter() {
+            graph.add_node(pkg.package_name.clone());
+            pkg.add_import_edges(&mut graph);
+        }
+        graph
     }
 
     fn first_pass(&mut self) -> io::Result<()> {
