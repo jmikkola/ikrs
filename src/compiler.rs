@@ -5,6 +5,7 @@ use std::path;
 
 use super::parser::tokenize::tokenize;
 use super::parser::parser::parse;
+use super::parser::ast;
 
 // submodules
 pub mod first_pass;
@@ -81,6 +82,7 @@ struct CompileJob {
 struct Package {
     package_name: String,
     file_paths: Vec<String>,
+    syntaxes: Vec<ast::Syntax>,
 }
 
 impl Package {
@@ -88,11 +90,13 @@ impl Package {
         Package{
             package_name: package_name,
             file_paths: Vec::new(),
+            syntaxes: Vec::new(),
         }
     }
 
     fn add_file_path(&mut self, filename: String) {
-        self.file_paths.push(filename);
+        self.file_paths.push(filename.clone());
+        self.syntaxes.push(ast::Syntax::new(filename));
     }
 }
 
