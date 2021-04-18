@@ -10,6 +10,22 @@ fn get_package<'a>(gp: &'a CompileJob, name: &str) -> Option<&'a Package> {
 }
 
 #[test]
+fn test_get_package_path() {
+    let cases = vec![
+        ("foo.ik", "main"),
+        ("main.ik", "main"),
+        ("./main.ik", "main"),
+        ("foo/main.ik", "foo"),
+        ("foo/bar/baz/x.ik", "foo.bar.baz"),
+        ("./foo/bar/baz/x.ik", "foo.bar.baz"),
+    ];
+
+    for (input, expected) in cases {
+        assert!(expected == get_package_path(&input.to_string()));
+    }
+}
+
+#[test]
 fn test_grouping_files() {
     let paths: Vec<String> = vec![
         "main.ik", "args.ik", "util/helpers.ik", "app/server/health.ik", "app/server/index.ik"
