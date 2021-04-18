@@ -52,7 +52,7 @@ pub fn compile(paths: Vec<String>, tokenize_only: bool) -> io::Result<()> {
             continue;
         }
 
-        let syntax = parse(&tokens);
+        let syntax = parse(path.clone(), &tokens);
         if syntax.has_errors() {
             error = true;
             for e in syntax.errors.iter() {

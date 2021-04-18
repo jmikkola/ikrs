@@ -6,8 +6,8 @@ use super::tokens::Token;
 #[cfg(test)]
 mod test;
 
-pub fn parse<'a>(tokens: &'a Tokens) -> Syntax {
-    let mut parser = Parser::new(&tokens.tokens);
+pub fn parse<'a>(filename: String, tokens: &'a Tokens) -> Syntax {
+    let mut parser = Parser::new(filename, &tokens.tokens);
     parser.parse_file();
     parser.syntax
 }
@@ -19,11 +19,11 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: &'a Vec<(Token, Location)>) -> Self {
+    fn new(filename: String, tokens: &'a Vec<(Token, Location)>) -> Self {
         Parser{
             tokens: tokens,
             index: 0,
-            syntax: Syntax::new(),
+            syntax: Syntax::new(filename),
         }
     }
 

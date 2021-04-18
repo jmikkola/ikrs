@@ -59,6 +59,8 @@ impl Inspect for TypeRef {
 // Syntax contains the results of parsing one file
 #[derive(Debug)]
 pub struct Syntax {
+    pub filename: String,
+
     pub declarations: Vec<Declaration>,
     pub statements: Vec<Statement>,
     pub expressions: Vec<Expression>,
@@ -68,8 +70,9 @@ pub struct Syntax {
 }
 
 impl Syntax {
-    pub fn new() -> Self {
+    pub fn new(filename: String) -> Self {
         Syntax{
+            filename: filename,
             declarations: Vec::new(),
             statements: Vec::new(),
             expressions: Vec::new(),

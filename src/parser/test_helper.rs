@@ -11,7 +11,7 @@ pub fn tokenize_and_parse(text: &str) -> Option<ast::Syntax> {
         return None;
     }
 
-    let syntax = parse(&tokens);
+    let syntax = parse("test".to_owned(), &tokens);
     if syntax.has_errors() {
         return None;
     }
