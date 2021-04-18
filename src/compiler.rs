@@ -13,13 +13,6 @@ pub mod first_pass;
 mod test;
 
 
-// TODO: Create a set of files to work with, and topologically sort them.
-// Parse them and processes the AST in that order.
-
-// Ideally, this would be able to write out the optimized AST (or even
-// assembly?) so that it could compile large programs without keeping everything
-// in memory, but there won't be any point for a long time.
-
 pub fn compile(paths: Vec<String>, base_path: &String, tokenize_only: bool) -> io::Result<()> {
     if tokenize_only {
         println!("only tokenizing");
@@ -38,37 +31,6 @@ pub fn compile(paths: Vec<String>, base_path: &String, tokenize_only: bool) -> i
     // infer types
     // lower
     // codegen
-
-    let mut error = false;
-    for path in paths.iter() {
-        let contents = read_path(path)?;
-
-        let tokens = tokenize(contents.as_str());
-        if tokens.has_unknown() {
-            error = true;
-            continue;
-        }
-
-        if tokenize_only {
-            continue;
-        }
-
-        let syntax = parse(path.clone(), &tokens);
-        if syntax.has_errors() {
-            error = true;
-            for e in syntax.errors.iter() {
-                println!("{}", e);
-            }
-            continue;
-        }
-
-        first_pass::check(&syntax)?;
-    }
-
-    if error {
-        let err = io::Error::new(io::ErrorKind::Other, "error");
-        return Err(err);
-    }
 
     Ok(())
 }
@@ -161,6 +123,13 @@ impl Package {
         }
         Ok(())
     }
+
+    fn first_pass(&self) -> io::Result<()> {
+        for syntax in self.syntaxes.iter() {
+            first_pass::check(syntax)?;
+        }
+        Ok(())
+    }
 }
 
 impl CompileJob {
@@ -209,10 +178,17 @@ impl CompileJob {
     }
 
     fn check_import_cycles(&mut self) -> io::Result<()> {
+        // TODO: Determine and store the topological ordering
         Ok(())
     }
 
     fn first_pass(&mut self) -> io::Result<()> {
+        // TODO: This should actually do the group of (first_pass, infer) in the
+        // topological ordering .. unless I go with the requirement that public
+        // functions in packages must have their types explicitly declared?
+        for pkg in self.packages.iter() {
+            pkg.first_pass()?;
+        }
         Ok(())
     }
 }
