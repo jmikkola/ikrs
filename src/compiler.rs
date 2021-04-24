@@ -28,8 +28,7 @@ pub fn compile(paths: Vec<String>, base_path: &String, tokenize_only: bool) -> i
 
     packages.check_declared_names()?;
     packages.check_import_cycles()?;
-    packages.first_pass()?;
-    // infer types
+    packages.check_modules_in_order()?;
     // lower
     // codegen
 
@@ -218,12 +217,23 @@ impl CompileJob {
         graph
     }
 
-    fn first_pass(&mut self) -> io::Result<()> {
-        // TODO: This should actually do the group of (first_pass, infer) in the
-        // topological ordering .. unless I go with the requirement that public
-        // functions in packages must have their types explicitly declared?
+    fn get_package_by_name(&self, name: &String) -> Option<&Package> {
         for pkg in self.packages.iter() {
-            pkg.first_pass()?;
+            if &pkg.package_name == name {
+                return Some(pkg);
+            }
+        }
+        None
+    }
+
+    fn check_modules_in_order(&self) -> io::Result<()> {
+        for group in self.package_ordering.iter() {
+            // You could in theory check the items in `group` in parallel
+            for module_name in group.iter() {
+                let package = self.get_package_by_name(module_name).unwrap();
+                package.first_pass()?;
+                // TODO: Also infer types
+            }
         }
         Ok(())
     }
