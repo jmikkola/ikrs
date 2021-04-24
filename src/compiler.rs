@@ -141,6 +141,8 @@ impl Package {
 #[derive(Debug)]
 struct CompileJob {
     packages: Vec<Package>,
+    // This contains a topological sort of packages based on imports, so that the compiler can wait
+    // to typecheck a module until all the models it depends on have been typechecked.
     package_ordering: Vec<Vec<String>>,
 }
 
