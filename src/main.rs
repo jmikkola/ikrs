@@ -7,6 +7,7 @@ extern crate walkdir;
 use walkdir::WalkDir;
 
 mod compiler;
+mod inference;
 mod parser;
 mod util;
 
