@@ -3,9 +3,10 @@ use std::io::prelude::*;
 use std::io;
 use std::path;
 
-use super::parser::tokenize::tokenize;
-use super::parser::parser::parse;
+use super::args::Args;
 use super::parser::ast;
+use super::parser::parser::parse;
+use super::parser::tokenize::tokenize;
 use super::util::graph::Graph;
 
 // submodules
@@ -14,15 +15,18 @@ pub mod first_pass;
 mod test;
 
 
-pub fn compile(paths: Vec<String>, base_path: &String, tokenize_only: bool) -> io::Result<()> {
-    if tokenize_only {
+pub fn compile(paths: Vec<String>, base_path: &String, args: &Args) -> io::Result<()> {
+    if args.tokenize_only {
         println!("only tokenizing");
+    } else if args.parse_only {
+        println!("only parsing");
     }
 
-    let mut packages = CompileJob::gather_files(&paths, base_path)?;
-    packages.parse_files(tokenize_only)?;
 
-    if tokenize_only {
+    let mut packages = CompileJob::gather_files(&paths, base_path)?;
+    packages.parse_files(args.tokenize_only)?;
+
+    if args.tokenize_only || args.parse_only {
         return Ok(());
     }
 
@@ -225,6 +229,7 @@ impl CompileJob {
                 return Some(pkg);
             }
         }
+        eprintln!("cannot find package named {}", name);
         None
     }
 

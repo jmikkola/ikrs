@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use super::*;
+use crate::args::Args;
 
 use tempdir;
 
@@ -102,7 +103,7 @@ fn main():
     let setup = vec![("main.ik", main)];
     let (_tmp_dir, base_path, file_paths) = setup_test_dir(setup).unwrap();
 
-    let result = compile(file_paths, &base_path, false);
+    let result = compile(file_paths, &base_path, &Args::new());
     assert!(result.is_ok(), "{:?}", result);
 }
 
@@ -136,7 +137,7 @@ fn hello_message():
     ];
     let (_tmp_dir, base_path, file_paths) = setup_test_dir(setup).unwrap();
 
-    let result = compile(file_paths, &base_path, false);
+    let result = compile(file_paths, &base_path, &Args::new());
     assert!(result.is_ok(), "{:?}", result);
 }
 
@@ -176,7 +177,7 @@ fn g():
     ];
     let (_tmp_dir, base_path, file_paths) = setup_test_dir(setup).unwrap();
 
-    let result = compile(file_paths, &base_path, false);
+    let result = compile(file_paths, &base_path, &Args::new());
     // TODO: Make an assertion about which error it is once that's possible
     assert!(result.is_err(), "{:?}", result);
 }
