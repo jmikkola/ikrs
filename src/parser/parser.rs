@@ -1234,7 +1234,12 @@ impl<'a> Parser<'a> {
         }
 
         let expr = self.parse_expression(indent);
-        let stmt = Statement::LetStmt(name, tref, expr);
+        let let_stmt = LetStatement{
+            variable: name,
+            expl_type: tref,
+            value: expr,
+        };
+        let stmt = Statement::LetStmt(Box::new(let_stmt));
         self.syntax.add_statement(stmt)
     }
 

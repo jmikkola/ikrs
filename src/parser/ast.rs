@@ -178,7 +178,7 @@ pub enum Statement {
     Return,
     ReturnExpr(ExpressionRef),
     ExprStmt(ExpressionRef),
-    LetStmt(String, Option<TypeRef>, ExpressionRef),
+    LetStmt(Box<LetStatement>),
     AssignStmt(ExpressionRef, ExpressionRef),
     Block(Vec<StatementRef>),
 
@@ -207,15 +207,8 @@ impl Inspect for Statement {
                 expr.inspect(f, s)?;
                 write!(f, ")")
             },
-            LetStmt(var, tref, expr) => {
-                write!(f, "(let {} ",  var)?;
-                if let Some(t) = tref {
-                    write!(f, ":: ")?;
-                    t.inspect(f, s)?;
-                    write!(f, " ")?;
-                }
-                expr.inspect(f, s)?;
-                write!(f, ")")
+            LetStmt(let_stmt) => {
+                let_stmt.inspect(f, s)
             },
             AssignStmt(asignee, expr) => {
                 write!(f, "(assign ")?;
@@ -237,6 +230,27 @@ impl Inspect for Statement {
             ForStmt(forstmt) => forstmt.inspect(f, s),
             MatchStmt(matchstmt) => matchstmt.inspect(f, s),
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LetStatement {
+    pub variable: String,
+    pub expl_type: Option<TypeRef>,
+    pub value: ExpressionRef,
+}
+
+#[cfg(test)]
+impl Inspect for LetStatement {
+    fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
+        write!(f, "(let {} ",  self.variable)?;
+        if let Some(t) = self.expl_type {
+            write!(f, ":: ")?;
+            t.inspect(f, s)?;
+            write!(f, " ")?;
+        }
+        self.value.inspect(f, s)?;
+        write!(f, ")")
     }
 }
 
