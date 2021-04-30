@@ -12,7 +12,7 @@ mod inference;
 mod parser;
 mod util;
 
-fn main() -> io::Result<()> {
+fn main() {
     let args = args::Args::parse();
     let (paths, base_path) = expand_paths(&args.path);
 
@@ -21,8 +21,6 @@ fn main() -> io::Result<()> {
         eprintln!("{}", error);
         std::process::exit(1);
     }
-
-    Ok(())
 }
 
 fn expand_paths(root: &String) -> (Vec<String>, String) {
