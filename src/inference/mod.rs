@@ -16,7 +16,7 @@ struct Inference {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct KindRef(usize);
 
-// Distinct from ast::TypeRef
+/// Distinct from ast::TypeRef
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TypeRef(usize);
 
@@ -30,8 +30,8 @@ impl Inference {
         let r = kinds.store(Kind::Star);
         debug_assert!(r == 0);
 
-        Inference{
-            kinds: kinds,
+        Inference {
+            kinds,
             types: Indexed::new(),
             strings: Indexed::new(),
         }
@@ -103,7 +103,7 @@ impl HasKind for Type {
                     Kind::Star => panic!("compiler bug: LHS of type application has kind Star"),
                     Kind::App(_, r) => r,
                 }
-            },
+            }
             Var(_, k) => k,
             Gen(_, k) => k,
         }

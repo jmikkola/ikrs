@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
-// Attempts to assign references (of type usize) to unique values of type Val.
-// The idea is that you can compare two refs to tell if the values are equal.
-// This also acts as the owner for the values, which sidesteps ownership issues
-// in complicated code.
+/// Attempts to assign references (of type usize) to unique values of type Val.
+/// The idea is that you can compare two refs to tell if the values are equal.
+/// This also acts as the owner for the values, which sidesteps ownership issues
+/// in complicated code.
 pub struct Indexed<Val> {
     values: Vec<Rc<Val>>,
     value_to_ref: HashMap<Rc<Val>, usize>,
@@ -15,7 +15,7 @@ pub struct Indexed<Val> {
 
 impl<Val: Eq + Hash + Clone> Indexed<Val> {
     pub fn new() -> Self {
-        Indexed{
+        Indexed {
             values: Vec::new(),
             value_to_ref: HashMap::new(),
         }

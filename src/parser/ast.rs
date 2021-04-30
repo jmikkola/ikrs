@@ -16,7 +16,9 @@ pub struct TypeRef(usize);
 
 #[cfg(test)]
 pub fn inspect<T>(value: T, syntax: &Syntax) -> Result<String, fmt::Error>
-where T: Inspect {
+where
+    T: Inspect,
+{
     let mut result = String::new();
     value.inspect(&mut result, syntax)?;
     Ok(result)
@@ -71,8 +73,8 @@ pub struct Syntax {
 
 impl Syntax {
     pub fn new(filename: String) -> Self {
-        Syntax{
-            filename: filename,
+        Syntax {
+            filename,
             declarations: Vec::new(),
             statements: Vec::new(),
             expressions: Vec::new(),
@@ -157,14 +159,14 @@ impl Inspect for &Declaration {
                     write!(f, " {}", name)?;
                 }
                 write!(f, ")")
-            },
+            }
             TypeDecl(defined, tdef) => {
                 write!(f, "(type ")?;
                 defined.inspect(f, s)?;
                 write!(f, " ")?;
                 tdef.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             FunctionDecl(fdecl) => fdecl.inspect(f, s),
             InstanceDecl(idecl) => idecl.inspect(f, s),
         }
@@ -193,30 +195,26 @@ impl Inspect for Statement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
         use Statement::*;
         match self {
-            StatementParseError =>
-                write!(f, "(stmt-error)"),
-            Return =>
-                write!(f, "(return)"),
+            StatementParseError => write!(f, "(stmt-error)"),
+            Return => write!(f, "(return)"),
             ReturnExpr(expr) => {
                 write!(f, "(return ")?;
                 expr.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             ExprStmt(expr) => {
                 write!(f, "(expr ")?;
                 expr.inspect(f, s)?;
                 write!(f, ")")
-            },
-            LetStmt(let_stmt) => {
-                let_stmt.inspect(f, s)
-            },
+            }
+            LetStmt(let_stmt) => let_stmt.inspect(f, s),
             AssignStmt(asignee, expr) => {
                 write!(f, "(assign ")?;
                 asignee.inspect(f, s)?;
                 write!(f, " ")?;
                 expr.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             Block(stmts) => {
                 write!(f, "(do")?;
                 for stmt in stmts {
@@ -224,7 +222,7 @@ impl Inspect for Statement {
                     stmt.inspect(f, s)?;
                 }
                 write!(f, ")")
-            },
+            }
             IfStmt(ifstmt) => ifstmt.inspect(f, s),
             WhileStmt(whilestmt) => whilestmt.inspect(f, s),
             ForStmt(forstmt) => forstmt.inspect(f, s),
@@ -243,7 +241,7 @@ pub struct LetStatement {
 #[cfg(test)]
 impl Inspect for LetStatement {
     fn inspect(&self, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result {
-        write!(f, "(let {} ",  self.variable)?;
+        write!(f, "(let {} ", self.variable)?;
         if let Some(t) = self.expl_type {
             write!(f, ":: ")?;
             t.inspect(f, s)?;
@@ -263,14 +261,13 @@ pub enum Expression {
     UnaryOperator(UnaryOp, ExpressionRef),
     BinaryOperator(BinaryOp, ExpressionRef, ExpressionRef),
     FunctionCall(ExpressionRef, Vec<ExpressionRef>),
-    FieldAccess(ExpressionRef, String), // like 'foo.bar'
+    FieldAccess(ExpressionRef, String),         // like 'foo.bar'
     OffsetAccess(ExpressionRef, ExpressionRef), // like 'foo[bar]'
     Paren(ExpressionRef),
 
     StructCreate(Box<StructExpression>),
     Lambda(Box<Lambda>),
 }
-
 
 #[cfg(test)]
 impl Inspect for Expression {
@@ -286,7 +283,7 @@ impl Inspect for Expression {
                 write!(f, " ")?;
                 expr.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             BinaryOperator(bop, left, right) => {
                 write!(f, "(binary ")?;
                 bop.inspect(f, s)?;
@@ -295,7 +292,7 @@ impl Inspect for Expression {
                 write!(f, " ")?;
                 right.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             FunctionCall(fexpr, ref args) => {
                 write!(f, "(call ")?;
                 fexpr.inspect(f, s)?;
@@ -304,24 +301,24 @@ impl Inspect for Expression {
                     arg.inspect(f, s)?;
                 }
                 write!(f, ")")
-            },
+            }
             FieldAccess(expr, ref field) => {
                 write!(f, "(access ")?;
                 expr.inspect(f, s)?;
                 write!(f, " {})", field)
-            },
+            }
             OffsetAccess(expr, offset) => {
                 write!(f, "(offset ")?;
                 expr.inspect(f, s)?;
                 write!(f, " ")?;
                 offset.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             Paren(expr) => {
                 write!(f, "(paren ")?;
                 expr.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             StructCreate(ref structexpr) => structexpr.inspect(f, s),
             Lambda(ref lambda) => lambda.inspect(f, s),
         }
@@ -366,10 +363,8 @@ impl Inspect for Type {
                     t.inspect(f, s)?;
                 }
                 write!(f, ")")
-            },
-            FnType(func_type) => {
-                func_type.inspect(f, s)
-            },
+            }
+            FnType(func_type) => func_type.inspect(f, s),
         }
     }
 }
@@ -446,16 +441,10 @@ impl Inspect for TypeDefinition {
             Alias(tref) => {
                 write!(f, "alias ")?;
                 tref.inspect(f, s)
-            },
-            Structure(struct_type) => {
-                struct_type.inspect(f, s)
-            },
-            Enum(enum_type) => {
-                enum_type.inspect(f, s)
-            },
-            Class(class_type) => {
-                class_type.inspect(f, s)
-            },
+            }
+            Structure(struct_type) => struct_type.inspect(f, s),
+            Enum(enum_type) => enum_type.inspect(f, s),
+            Class(class_type) => class_type.inspect(f, s),
         }
     }
 }
@@ -699,12 +688,12 @@ impl Inspect for Pattern {
                 write!(f, "(@ {} ", name)?;
                 pattern.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             Literal(lit) => {
                 write!(f, "(lit ")?;
                 lit.inspect(f, s)?;
                 write!(f, ")")
-            },
+            }
             Structure(pat) => pat.inspect(f, s),
             Tuple(pats) => {
                 write!(f, "(tuple")?;
@@ -713,7 +702,7 @@ impl Inspect for Pattern {
                     pat.inspect(f, s)?;
                 }
                 write!(f, ")")
-            },
+            }
         }
     }
 }
@@ -822,7 +811,7 @@ pub enum UnaryOp {
 impl Inspect for UnaryOp {
     fn inspect(&self, f: &mut impl fmt::Write, _s: &Syntax) -> fmt::Result {
         use UnaryOp::*;
-        match self{
+        match self {
             BoolNot => write!(f, "!"),
             Negate => write!(f, "-"),
             BitInvert => write!(f, "~"),
@@ -848,7 +837,6 @@ pub enum BinaryOp {
     LessEqual,
     Greater,
     GreaterEqual,
-
     // TODO: left and right shift
 }
 
@@ -884,7 +872,9 @@ impl Inspect for String {
 
 #[cfg(test)]
 fn inspect_list<T>(items: &Vec<T>, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result
-where T: Inspect {
+where
+    T: Inspect,
+{
     write!(f, "(")?;
     let mut wrote_first = false;
     for item in items.iter() {

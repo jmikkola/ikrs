@@ -36,11 +36,15 @@ fn test_get_package_path() {
 #[test]
 fn test_grouping_files() {
     let paths: Vec<String> = vec![
-        "main.ik", "args.ik", "util/helpers.ik", "app/server/health.ik", "app/server/index.ik"
+        "main.ik",
+        "args.ik",
+        "util/helpers.ik",
+        "app/server/health.ik",
+        "app/server/index.ik",
     ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
 
     let result = CompileJob::gather_files(&paths, &"".to_owned()).unwrap();
 
@@ -54,13 +58,17 @@ fn test_grouping_files() {
     assert!(util_pkg.file_paths.contains(&"util/helpers.ik".to_string()));
 
     let server_pkg = get_package(&result, "app.server").unwrap();
-    assert!(server_pkg.file_paths.contains(&"app/server/health.ik".to_string()));
-    assert!(server_pkg.file_paths.contains(&"app/server/index.ik".to_string()));
-
+    assert!(server_pkg
+        .file_paths
+        .contains(&"app/server/health.ik".to_string()));
+    assert!(server_pkg
+        .file_paths
+        .contains(&"app/server/index.ik".to_string()));
 }
 
-fn setup_test_dir(name_and_contents: Vec<(&str, &str)>)
-                  -> io::Result<(tempdir::TempDir, String, Vec<String>)> {
+fn setup_test_dir(
+    name_and_contents: Vec<(&str, &str)>,
+) -> io::Result<(tempdir::TempDir, String, Vec<String>)> {
     let tmp_dir = tempdir::TempDir::new("ikrs-tests")?;
     let base_dir = path_to_string(tmp_dir.path());
 
@@ -170,11 +178,7 @@ fn g():
   a.f()
 "#;
 
-    let setup = vec![
-        ("main.ik", main),
-        ("a/a.ik", a),
-        ("b/b.ik", b),
-    ];
+    let setup = vec![("main.ik", main), ("a/a.ik", a), ("b/b.ik", b)];
     let (_tmp_dir, base_path, file_paths) = setup_test_dir(setup).unwrap();
 
     let result = compile(file_paths, &base_path, &Args::new());

@@ -1,6 +1,6 @@
 use std::fs::File;
-use std::io::prelude::*;
 use std::io;
+use std::io::prelude::*;
 use std::path;
 
 use super::args::Args;
@@ -14,14 +14,12 @@ pub mod first_pass;
 #[cfg(test)]
 mod test;
 
-
 pub fn compile(paths: Vec<String>, base_path: &String, args: &Args) -> io::Result<()> {
     if args.tokenize_only {
         println!("only tokenizing");
     } else if args.parse_only {
         println!("only parsing");
     }
-
 
     let mut packages = CompileJob::gather_files(&paths, base_path)?;
     packages.parse_files(args.tokenize_only)?;
@@ -48,8 +46,8 @@ struct Package {
 
 impl Package {
     fn new(package_name: String) -> Self {
-        Package{
-            package_name: package_name,
+        Package {
+            package_name,
             file_paths: Vec::new(),
             syntaxes: Vec::new(),
         }
@@ -101,21 +99,23 @@ impl Package {
                 decl
             } else {
                 // ignore empty files
-                continue
+                continue;
             };
 
             if let ast::Declaration::PackageDecl(name) = first_decl {
                 if *name != expected_name {
                     eprintln!(
                         "file {} should declare package {} but declares package {} instead",
-                        syntax.filename, expected_name, name);
+                        syntax.filename, expected_name, name
+                    );
                     let err = io::Error::new(io::ErrorKind::Other, "error");
                     return Err(err);
                 }
             } else if !allowed_to_skip_package_decl {
                 eprintln!(
                     "file {} should declare package {} but doesn't",
-                    syntax.filename, expected_name);
+                    syntax.filename, expected_name
+                );
                 let err = io::Error::new(io::ErrorKind::Other, "error");
                 return Err(err);
             }
@@ -152,7 +152,7 @@ struct CompileJob {
 
 impl CompileJob {
     fn new() -> Self {
-        CompileJob{
+        CompileJob {
             packages: vec![],
             package_ordering: vec![],
         }

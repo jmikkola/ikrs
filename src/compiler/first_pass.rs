@@ -34,8 +34,8 @@ struct CheckState<'a> {
 
 impl<'a> CheckState<'a> {
     fn new(syntax: &'a ast::Syntax) -> Self {
-        CheckState{
-            syntax: syntax,
+        CheckState {
+            syntax,
             errors: Vec::new(),
 
             // binding_names: HashSet::new(),
@@ -78,8 +78,8 @@ impl<'a> CheckState<'a> {
                     // as a side-effect, this writes the type decl to
                     // self.types_declared
                     self.check_duplicate_type_decl(*tdecl);
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
     }
@@ -97,28 +97,28 @@ impl<'a> CheckState<'a> {
         match declaration {
             DeclarationParseError => {
                 panic!("should not see a parse error in first pass")
-            },
+            }
             PackageDecl(_) => {
                 self.check_package_location();
-            },
+            }
             ImportDecl(names) => {
                 let import_name = names.join(".");
                 self.check_import_location(&import_name);
                 self.check_import_duplication(import_name);
-            },
+            }
             TypeDecl(tdecl, tdef) => {
                 self.saw_non_header_decl = true;
                 self.check_defined_type(*tdecl, &*tdef);
-            },
+            }
             FunctionDecl(_func_decl) => {
                 self.saw_non_header_decl = true;
                 // TODO: Check arguments/constraints
                 // TODO: Check function body
-            },
+            }
             InstanceDecl(_inst_decl) => {
                 self.saw_non_header_decl = true;
                 // TODO: Check that it actually implements the class it says it does
-            },
+            }
         }
     }
 
@@ -136,7 +136,8 @@ impl<'a> CheckState<'a> {
         if self.saw_non_header_decl {
             let err = format!(
                 "import statement must be above other declarations: import {}",
-                import_name);
+                import_name
+            );
             self.errors.push(err);
         }
     }
@@ -173,16 +174,16 @@ impl<'a> CheckState<'a> {
         match tdef {
             Alias(tref) => {
                 self.check_alias_type(defined, *tref);
-            },
+            }
             Structure(struct_type) => {
                 self.check_struct_type(struct_type);
-            },
+            }
             Enum(enum_type) => {
                 self.check_enum_type(enum_type);
-            },
+            }
             Class(class_type) => {
                 self.check_class_type(class_type);
-            },
+            }
         }
     }
 
@@ -193,7 +194,10 @@ impl<'a> CheckState<'a> {
         // TODO: This should really also disallow alias cycles
         // (e.g. `type A B; type B A`)
 
-        let _name = self.syntax.get_type(defined).declared_name()
+        let _name = self
+            .syntax
+            .get_type(defined)
+            .declared_name()
             .expect("should have already checked this in check_duplicate_type_decl");
     }
 
@@ -224,9 +228,7 @@ impl<'a> CheckState<'a> {
             let mut fields = HashSet::new();
             for (name, tref) in variant.content.fields.iter() {
                 if !fields.insert(name.clone()) {
-                    let err = format!(
-                        "duplicate enum field: {} in variant {}",
-                        name, variant.name);
+                    let err = format!("duplicate enum field: {} in variant {}", name, variant.name);
                     self.errors.push(err);
                 }
                 self.ensure_type_is_defined(*tref);
@@ -253,17 +255,17 @@ impl<'a> CheckState<'a> {
         match typ {
             TypeParseError => {
                 panic!("should not see a parse error in first pass")
-            },
-            Void => {},
+            }
+            Void => {}
             TypeName(name) => {
                 if !self.is_type_defined(name) {
                     let err = format!("undefined type: {}", name);
                     self.errors.push(err);
                 }
-            },
+            }
             TypeVar(_var) => {
                 // TODO: Ensure type vars are in scope
-            },
+            }
             Generic(name, trefs) => {
                 if !self.is_type_defined(name) {
                     let err = format!("undefined type: {}", name);
@@ -272,14 +274,14 @@ impl<'a> CheckState<'a> {
                 for tref in trefs.iter() {
                     self.ensure_type_is_defined(*tref);
                 }
-            },
+            }
             FnType(func_type) => {
                 for tref in func_type.arg_types.iter() {
                     self.ensure_type_is_defined(*tref);
                 }
                 self.ensure_type_is_defined(func_type.ret_type);
                 // TODO: Ensure func_type.constraints are defined classes
-            },
+            }
         }
     }
 
@@ -320,8 +322,7 @@ mod test {
     use crate::parser::test_helper::tokenize_and_parse;
 
     fn must_parse(file: &str) -> ast::Syntax {
-        tokenize_and_parse(file)
-            .expect("cannot parse example in test")
+        tokenize_and_parse(file).expect("cannot parse example in test")
     }
 
     fn get_errors<'a>(file: &str) -> Vec<String> {
@@ -380,7 +381,10 @@ package foo
 import a
 package foo
 "#;
-        expect_has_error(file, r"package declaration must be the first declaration in the file");
+        expect_has_error(
+            file,
+            r"package declaration must be the first declaration in the file",
+        );
     }
 
     #[test]
@@ -411,7 +415,10 @@ fn foo():
   return
 import b
 "#;
-        expect_has_error(file, r"import statement must be above other declarations: import b");
+        expect_has_error(
+            file,
+            r"import statement must be above other declarations: import b",
+        );
     }
 
     #[test]
@@ -509,12 +516,12 @@ type String Int
         expect_has_error(file, r"cannot redefine builtin type String");
     }
 
-// TODO
-//     #[test]
-//     fn test_recursive_alias() {
-//         let file = r#"
-// type A A
-// "#;
-//         expect_has_error(file, r"self-referential type alias");
-//     }
+    // TODO
+    //     #[test]
+    //     fn test_recursive_alias() {
+    //         let file = r#"
+    // type A A
+    // "#;
+    //         expect_has_error(file, r"self-referential type alias");
+    //     }
 }

@@ -8,7 +8,7 @@ pub struct Args {
 
 impl Args {
     pub fn new() -> Self {
-        Args{
+        Args {
             path: String::new(),
             tokenize_only: false,
             parse_only: false,
@@ -25,15 +25,15 @@ impl Args {
             ap.refer(&mut args.tokenize_only).add_option(
                 &["--tokenize-only"],
                 StoreTrue,
-                "Only tokenize");
-            ap.refer(&mut args.parse_only).add_option(
-                &["--parse-only"],
-                StoreTrue,
-                "Only parse");
+                "Only tokenize",
+            );
+            ap.refer(&mut args.parse_only)
+                .add_option(&["--parse-only"], StoreTrue, "Only parse");
             ap.refer(&mut args.path).add_argument(
                 "path",
                 Store,
-                "path to a directory containing a project or a single .ik file");
+                "path to a directory containing a project or a single .ik file",
+            );
             ap.parse_args_or_exit();
         }
 

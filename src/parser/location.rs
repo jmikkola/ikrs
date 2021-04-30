@@ -1,4 +1,4 @@
-use std::cmp::{Ordering, PartialOrd, Ord};
+use std::cmp::{Ord, Ordering, PartialOrd};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Location {
@@ -8,12 +8,15 @@ pub struct Location {
 
 impl Location {
     pub fn new() -> Self {
-        Self{col: 0, line: 0}
+        Self { col: 0, line: 0 }
     }
 
     pub fn left(&self) -> Self {
         debug_assert!(self.col > 0);
-        Self{col: self.col - 1, line: self.line}
+        Self {
+            col: self.col - 1,
+            line: self.line,
+        }
     }
 
     pub fn update(&self, c: char) -> Self {
@@ -63,10 +66,10 @@ mod test {
 
     #[test]
     fn test_ordering() {
-        let l0c0 = Location{line: 0, col: 0};
-        let l0c3 = Location{line: 0, col: 3};
-        let l2c0 = Location{line: 2, col: 0};
-        let l2c3 = Location{line: 2, col: 3};
+        let l0c0 = Location { line: 0, col: 0 };
+        let l0c3 = Location { line: 0, col: 3 };
+        let l2c0 = Location { line: 2, col: 0 };
+        let l2c3 = Location { line: 2, col: 3 };
 
         use Ordering::*;
 

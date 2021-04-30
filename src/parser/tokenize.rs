@@ -1,5 +1,5 @@
-use super::tokens::{Token, Comment};
 use super::location::Location;
+use super::tokens::{Comment, Token};
 
 #[derive(Debug)]
 pub struct Tokens {
@@ -70,7 +70,7 @@ pub fn tokenize(text: &str) -> Tokens {
         match state {
             Start => {
                 debug_assert!(current.is_empty());
-            },
+            }
             Operator => {
                 debug_assert!(!current.is_empty());
                 let previous = current.chars().next().unwrap();
@@ -84,7 +84,7 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::Equals, start_location));
                         }
-                    },
+                    }
                     '!' => {
                         if c == '=' {
                             tokens.push((Token::NotEquals, start_location));
@@ -94,7 +94,7 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::Bang, start_location));
                         }
-                    },
+                    }
                     '<' => {
                         if c == '=' {
                             tokens.push((Token::LessEquals, start_location));
@@ -104,7 +104,7 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::Less, start_location));
                         }
-                    },
+                    }
                     '>' => {
                         if c == '=' {
                             tokens.push((Token::GreaterEquals, start_location));
@@ -114,7 +114,7 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::Greater, start_location));
                         }
-                    },
+                    }
                     '&' => {
                         if c == '&' {
                             tokens.push((Token::DoubleAnd, start_location));
@@ -124,7 +124,7 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::SingleAnd, start_location));
                         }
-                    },
+                    }
                     '|' => {
                         if c == '|' {
                             tokens.push((Token::DoubleOr, start_location));
@@ -134,7 +134,7 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::SingleOr, start_location));
                         }
-                    },
+                    }
                     '*' => {
                         if c == '*' {
                             tokens.push((Token::DoubleStar, start_location));
@@ -144,12 +144,12 @@ pub fn tokenize(text: &str) -> Tokens {
                         } else {
                             tokens.push((Token::Star, start_location));
                         }
-                    },
+                    }
                     _ => {
                         panic!("unexpected prev char in operator");
-                    },
+                    }
                 }
-            },
+            }
             Slash => {
                 debug_assert!(current.is_empty());
                 if c == '/' {
@@ -161,7 +161,7 @@ pub fn tokenize(text: &str) -> Tokens {
                 } else {
                     tokens.push((Token::Slash, start_location));
                 }
-            },
+            }
             BlockComment => {
                 if c == '*' {
                     state = BlockCommentStar;
@@ -169,7 +169,7 @@ pub fn tokenize(text: &str) -> Tokens {
                     current.push(c);
                 }
                 continue;
-            },
+            }
             BlockCommentStar => {
                 if c == '/' {
                     comments.push((Comment::BlockComment(current), start_location));
@@ -184,7 +184,7 @@ pub fn tokenize(text: &str) -> Tokens {
                     state = BlockComment;
                 }
                 continue;
-            },
+            }
             LineComment => {
                 if c == '\n' {
                     comments.push((Comment::LineComment(current), start_location));
@@ -192,7 +192,7 @@ pub fn tokenize(text: &str) -> Tokens {
                     current.push(c);
                     continue;
                 }
-            },
+            }
             InName => {
                 debug_assert!(!current.is_empty());
                 if c.is_alphanumeric() || c == '_' || c == '?' {
@@ -200,7 +200,7 @@ pub fn tokenize(text: &str) -> Tokens {
                     continue;
                 }
                 tokens.push((name_token(current), start_location));
-            },
+            }
             InType => {
                 debug_assert!(!current.is_empty());
                 if c.is_alphanumeric() || c == '_' {
@@ -208,7 +208,7 @@ pub fn tokenize(text: &str) -> Tokens {
                     continue;
                 }
                 tokens.push((Token::TypeName(current), start_location));
-            },
+            }
             InInteger => {
                 debug_assert!(!current.is_empty());
                 if c.is_ascii_digit() {
@@ -220,7 +220,7 @@ pub fn tokenize(text: &str) -> Tokens {
                 }
                 let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), start_location));
-            },
+            }
             IntegerDot => {
                 debug_assert!(!current.is_empty());
                 if c.is_ascii_digit() {
@@ -233,7 +233,7 @@ pub fn tokenize(text: &str) -> Tokens {
                 let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), start_location));
                 tokens.push((Token::Dot, location.left()));
-            },
+            }
             InFloat => {
                 debug_assert!(!current.is_empty());
                 if c.is_ascii_digit() {
@@ -243,7 +243,7 @@ pub fn tokenize(text: &str) -> Tokens {
                 // TODO: Handle exponents
                 let n = current.parse();
                 tokens.push((Token::FloatLiteral(n.unwrap()), start_location));
-            },
+            }
             InString => {
                 debug_assert!(!current.is_empty());
                 current.push(c);
@@ -255,22 +255,28 @@ pub fn tokenize(text: &str) -> Tokens {
                     state = InStringEscape;
                 }
                 continue;
-            },
+            }
             InStringEscape => {
                 current.push(c);
                 state = InString;
                 continue;
-            },
+            }
             Unknown => {
                 debug_assert!(!current.is_empty());
-                if !(c.is_whitespace() || c == '(' || c == ')'
-                     || c == '[' || c == ']' || c == '{' || c == '}') {
+                if !(c.is_whitespace()
+                    || c == '('
+                    || c == ')'
+                    || c == '['
+                    || c == ']'
+                    || c == '{'
+                    || c == '}')
+                {
                     current.push(c);
                     continue;
                 }
                 saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
-            },
+            }
         }
 
         current = String::new();
@@ -280,10 +286,10 @@ pub fn tokenize(text: &str) -> Tokens {
         match c {
             '\n' => {
                 tokens.push((Token::Newline, location));
-            },
+            }
             _ if c.is_whitespace() => {
                 // Ignore it
-            },
+            }
             '@' => tokens.push((Token::Ampersand, location)),
             '.' => tokens.push((Token::Dot, location)),
             ',' => tokens.push((Token::Comma, location)),
@@ -299,7 +305,7 @@ pub fn tokenize(text: &str) -> Tokens {
             '/' => {
                 start_location = location;
                 state = Slash;
-            },
+            }
             '%' => tokens.push((Token::Percent, location)),
             '~' => tokens.push((Token::Tilda, location)),
             '^' => tokens.push((Token::Caret, location)),
@@ -307,12 +313,12 @@ pub fn tokenize(text: &str) -> Tokens {
                 current.push(c);
                 start_location = location;
                 state = Operator;
-            },
+            }
             '"' => {
                 current.push(c);
                 start_location = location;
                 state = InString;
-            },
+            }
             _ if c.is_alphabetic() || c == '_' => {
                 start_location = location;
                 current.push(c);
@@ -321,12 +327,12 @@ pub fn tokenize(text: &str) -> Tokens {
                 } else {
                     state = InName;
                 }
-            },
+            }
             _ if c.is_ascii_digit() => {
                 start_location = location;
                 current.push(c);
                 state = InInteger;
-            },
+            }
             _ => {
                 start_location = location;
                 current.push(c);
@@ -340,7 +346,7 @@ pub fn tokenize(text: &str) -> Tokens {
         match state {
             Start => {
                 panic!("current should always empty in the starting state");
-            },
+            }
             Operator => {
                 debug_assert!(!current.is_empty());
                 let previous = current.chars().next().unwrap();
@@ -353,48 +359,48 @@ pub fn tokenize(text: &str) -> Tokens {
                     '|' => tokens.push((Token::SingleOr, start_location)),
                     _ => {
                         panic!("unexpected prev char in operator");
-                    },
+                    }
                 }
-            },
+            }
             Slash => {
                 tokens.push((Token::Slash, start_location));
-            },
+            }
             LineComment => {
                 comments.push((Comment::LineComment(current), start_location));
-            },
+            }
             BlockComment | BlockCommentStar => {
                 // Block comment was never closed
                 saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
-            },
+            }
             InName => {
                 tokens.push((name_token(current), start_location));
-            },
+            }
             InType => {
                 tokens.push((Token::TypeName(current), start_location));
-            },
+            }
             InInteger => {
                 let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), start_location));
-            },
+            }
             IntegerDot => {
                 let n = current.parse();
                 tokens.push((Token::IntLiteral(n.unwrap()), start_location));
                 tokens.push((Token::Dot, next_location.left()));
-            },
+            }
             InFloat => {
                 let n = current.parse();
                 tokens.push((Token::FloatLiteral(n.unwrap()), start_location));
-            },
+            }
             InString | InStringEscape => {
                 // Unclosed string
                 saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
-            },
+            }
             Unknown => {
                 saw_unknown = true;
                 tokens.push((Token::Unknown(current), start_location));
-            },
+            }
         }
     }
 
@@ -411,57 +417,54 @@ fn name_token(name: String) -> Token {
             "fn" => Token::KeywordFn,
             "if" => Token::KeywordIf,
             "in" => Token::KeywordIn,
-            _    => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
         3 => match name.as_str() {
             "for" => Token::KeywordFor,
             "let" => Token::KeywordLet,
-            _     => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
         4 => match name.as_str() {
             "else" => Token::KeywordElse,
             "enum" => Token::KeywordEnum,
             "type" => Token::KeywordType,
             "with" => Token::KeywordWith,
-            _      => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
         5 => match name.as_str() {
             "class" => Token::KeywordClass,
             "match" => Token::KeywordMatch,
             "where" => Token::KeywordWhere,
             "while" => Token::KeywordWhile,
-            _       => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
         6 => match name.as_str() {
             "import" => Token::KeywordImport,
             "return" => Token::KeywordReturn,
             "struct" => Token::KeywordStruct,
-            _        => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
         7 => match name.as_str() {
             "extends" => Token::KeywordExtends,
             "package" => Token::KeywordPackage,
-            _         => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
         8 => match name.as_str() {
             "instance" => Token::KeywordInstance,
-            _          => Token::ValueName(name),
+            _ => Token::ValueName(name),
         },
-        _ => {
-            Token::ValueName(name)
-        },
+        _ => Token::ValueName(name),
     }
 }
 
 #[cfg(test)]
 fn merge_tokens(tokens: &Tokens) -> Vec<(Result<Token, Comment>, Location)> {
-    let mut results: Vec<(Result<Token, Comment>, Location)> = tokens.tokens.iter()
+    let mut results: Vec<(Result<Token, Comment>, Location)> = tokens
+        .tokens
+        .iter()
         .cloned()
         .map(|(t, l)| (Ok(t), l))
-        .chain(
-            tokens.comments.iter().cloned()
-                .map(|(c, l)| (Err(c), l))
-        )
+        .chain(tokens.comments.iter().cloned().map(|(c, l)| (Err(c), l)))
         .collect();
     results.sort_by_key(|(_, l)| l.clone());
     results
@@ -517,11 +520,19 @@ mod test {
     }
 
     fn get_tokens(input: &str) -> Vec<Token> {
-        tokens(input).iter().map(|(token, _)| { token }).cloned().collect()
+        tokens(input)
+            .iter()
+            .map(|(token, _)| token)
+            .cloned()
+            .collect()
     }
 
     fn get_comments(input: &str) -> Vec<Comment> {
-        comments(input).iter().map(|(token, _)| { token }).cloned().collect()
+        comments(input)
+            .iter()
+            .map(|(token, _)| token)
+            .cloned()
+            .collect()
     }
 
     fn assert_is_token(expected: Token, input: &str) {
@@ -574,40 +585,41 @@ mod test {
 
     #[test]
     fn test_comments() {
-        assert_tokens(
-            vec![IntLiteral(123)],
-            "123   // foo"
-        );
+        assert_tokens(vec![IntLiteral(123)], "123   // foo");
         assert_comments(
             vec![Comment::LineComment(" foo".to_string())],
-            "123   // foo"
+            "123   // foo",
         );
 
-        assert_tokens(
-            vec![IntLiteral(123), Newline],
-            "123   // foo\n"
-        );
+        assert_tokens(vec![IntLiteral(123), Newline], "123   // foo\n");
         assert_comments(
             vec![Comment::LineComment(" foo".to_string())],
-            "123   // foo\n"
+            "123   // foo\n",
         );
 
         assert_tokens(
             vec![ValueName("x".to_string()), Plus, IntLiteral(123)],
-            "x  /*\n comment */ +  123"
+            "x  /*\n comment */ +  123",
         );
         assert_comments(
             vec![Comment::BlockComment("\n comment ".to_string())],
-            "x  /*\n comment */ +  123"
+            "x  /*\n comment */ +  123",
         );
     }
 
     #[test]
     fn test_characters() {
         let expected: Vec<Token> = vec![
-            DoubleEquals, Equals, LParen, Plus,
-            SingleOr, GreaterEquals, Greater,
-            DoubleOr, Caret, Ampersand,
+            DoubleEquals,
+            Equals,
+            LParen,
+            Plus,
+            SingleOr,
+            GreaterEquals,
+            Greater,
+            DoubleOr,
+            Caret,
+            Ampersand,
         ];
         let input = "===(+|>=>||^@";
         assert_tokens(expected, input);

@@ -1,10 +1,10 @@
 // module graph
-use std::collections::HashSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::LinkedList;
 use std::hash::Hash;
 
-// This could probably be much more efficient by borrowing all values
+/// This could probably be much more efficient by borrowing all values
 pub struct Graph<A> {
     nodes: HashSet<A>,
     edges: HashMap<A, HashSet<A>>,
@@ -12,7 +12,7 @@ pub struct Graph<A> {
 
 impl<A: Eq + Hash + Clone> Graph<A> {
     pub fn new() -> Self {
-        Graph{
+        Graph {
             nodes: HashSet::new(),
             edges: HashMap::new(),
         }
@@ -22,7 +22,7 @@ impl<A: Eq + Hash + Clone> Graph<A> {
         self.nodes.insert(node);
     }
 
-    // Automatically adds the nodes
+    /// Automatically adds the nodes
     pub fn add_edge(&mut self, from: A, to: A) {
         self.add_node(from.clone());
         self.add_node(to.clone());
@@ -150,7 +150,12 @@ impl<A: Eq + Hash + Clone> Graph<A> {
         result
     }
 
-    fn scc_visit<'a>(&'a self, visited: &mut HashSet<&'a A>, ordering: &mut Vec<&'a A>, node: &'a A) {
+    fn scc_visit<'a>(
+        &'a self,
+        visited: &mut HashSet<&'a A>,
+        ordering: &mut Vec<&'a A>,
+        node: &'a A,
+    ) {
         if visited.contains(node) {
             return;
         }
@@ -165,7 +170,7 @@ impl<A: Eq + Hash + Clone> Graph<A> {
         ordering.push(node);
     }
 
-    // To be called on the reversed graph
+    /// To be called on the reversed graph
     fn scc_assign(&self, assignments: &mut HashMap<A, A>, node: &A, component: &A) {
         if assignments.contains_key(node) {
             return;
@@ -298,5 +303,4 @@ mod test {
         let expected = vec![vec![104, 106, 1009], vec![13, 105], vec![11, 12], vec![1]];
         assert!(expected == ordering);
     }
-
 }

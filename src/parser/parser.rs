@@ -20,7 +20,7 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(filename: String, tokens: &'a Vec<(Token, Location)>) -> Self {
-        Parser{
+        Parser {
             tokens: tokens,
             index: 0,
             syntax: Syntax::new(filename),
@@ -33,9 +33,9 @@ impl<'a> Parser<'a> {
                 None => break,
                 Some(Token::Newline) => {
                     self.next();
-                    continue
-                },
-                _ => {},
+                    continue;
+                }
+                _ => {}
             }
 
             self.parse_declaration(None);
@@ -46,7 +46,7 @@ impl<'a> Parser<'a> {
         let (token, location) = match self.next() {
             None => {
                 return self.declaration_error("Expected a declaration, got EOF");
-            },
+            }
             Some(tok) => tok,
         };
 
@@ -61,23 +61,15 @@ impl<'a> Parser<'a> {
             Token::KeywordPackage => {
                 let decl = self.parse_package();
                 self.eat_newline_decl(decl)
-            },
+            }
             Token::KeywordImport => {
                 let decl = self.parse_import();
                 self.eat_newline_decl(decl)
-            },
-            Token::KeywordType => {
-                self.parse_type_decl(current_indent)
-            },
-            Token::KeywordFn => {
-                self.parse_func_decl(current_indent)
-            },
-            Token::KeywordInstance => {
-                self.parse_instance_decl(current_indent)
-            },
-            _ => {
-                self.declaration_error("bad declaration")
-            },
+            }
+            Token::KeywordType => self.parse_type_decl(current_indent),
+            Token::KeywordFn => self.parse_func_decl(current_indent),
+            Token::KeywordInstance => self.parse_instance_decl(current_indent),
+            _ => self.declaration_error("bad declaration"),
         }
     }
 
@@ -86,10 +78,8 @@ impl<'a> Parser<'a> {
             Some(Token::ValueName(name)) => {
                 let d = Declaration::PackageDecl(name.clone());
                 self.syntax.add_declaration(d)
-            },
-            _ => {
-                self.declaration_error("expected a name after 'package'")
-            },
+            }
+            _ => self.declaration_error("expected a name after 'package'"),
         }
     }
 
@@ -99,10 +89,10 @@ impl<'a> Parser<'a> {
         match self.next_token() {
             Some(Token::ValueName(name)) => {
                 names.push(name.clone());
-            },
+            }
             _ => {
                 return self.declaration_error("expected a name after 'import'");
-            },
+            }
         }
 
         loop {
@@ -114,10 +104,10 @@ impl<'a> Parser<'a> {
             match self.next_token() {
                 Some(Token::ValueName(name)) => {
                     names.push(name.clone());
-                },
+                }
                 _ => {
                     return self.declaration_error("expected a name after 'import'");
-                },
+                }
             }
         }
 
@@ -175,7 +165,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                     new_indent = Some(location.col);
-                },
+                }
                 Some(level) => {
                     if location.col > level {
                         let err_stmt = self.declaration_error("Instance method indented too far");
@@ -187,7 +177,7 @@ impl<'a> Parser<'a> {
                         // The block has ended
                         break;
                     }
-                },
+                }
             }
 
             if !self.require_next(Token::KeywordFn) {
@@ -197,7 +187,7 @@ impl<'a> Parser<'a> {
             methods.push(method);
         }
 
-        let inst_decl = InstanceDecl{
+        let inst_decl = InstanceDecl {
             on_type: on_type,
             class: class,
             constraints: constraints,
@@ -216,25 +206,23 @@ impl<'a> Parser<'a> {
             Some(Token::KeywordStruct) => {
                 self.next();
                 self.parse_struct_def(defined, indent)
-            },
+            }
             Some(Token::KeywordEnum) => {
                 self.next();
                 self.parse_enum_def(defined, indent)
-            },
+            }
             Some(Token::KeywordClass) => {
                 self.next();
                 self.parse_class_def(defined, indent)
-            },
+            }
             Some(_) => {
                 let t = self.parse_type();
                 let td = TypeDefinition::Alias(t);
                 let decl = Declaration::TypeDecl(defined, Box::new(td));
                 let dref = self.syntax.add_declaration(decl);
                 self.eat_newline_decl(dref)
-            },
-            None => {
-                self.declaration_error("Expected a type definition, found EOF")
-            },
+            }
+            None => self.declaration_error("Expected a type definition, found EOF"),
         }
     }
 
@@ -245,7 +233,7 @@ impl<'a> Parser<'a> {
         };
 
         // Assemble the result
-        let struct_type = StructType{fields: fields};
+        let struct_type = StructType { fields: fields };
         let td = TypeDefinition::Structure(struct_type);
         let decl = Declaration::TypeDecl(defined, Box::new(td));
         let dref = self.syntax.add_declaration(decl);
@@ -288,7 +276,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                     new_indent = Some(location.col);
-                },
+                }
                 Some(level) => {
                     if location.col > level {
                         return self.declaration_error("Enum variant indented too far");
@@ -309,22 +297,26 @@ impl<'a> Parser<'a> {
                 Some(Token::Newline) => {
                     self.next();
                     vec![]
-                },
+                }
                 Some(Token::Colon) => match self.parse_type_fields(new_indent.unwrap()) {
                     Ok(fs) => fs,
                     Err(dref) => return dref,
                 },
-                _ =>
-                    return self.declaration_error("Expected a newline or colon after enum variant"),
+                _ => {
+                    return self.declaration_error("Expected a newline or colon after enum variant")
+                }
             };
-            let content = StructType{fields: fields};
+            let content = StructType { fields: fields };
 
-            let variant = EnumVariant{name: v_name, content: content};
+            let variant = EnumVariant {
+                name: v_name,
+                content: content,
+            };
             variants.push(variant);
         }
 
         // Assemble the result
-        let enum_type = EnumType{variants: variants};
+        let enum_type = EnumType { variants: variants };
         let td = TypeDefinition::Enum(enum_type);
         let decl = Declaration::TypeDecl(defined, Box::new(td));
         self.syntax.add_declaration(decl)
@@ -385,7 +377,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                     new_indent = Some(location.col);
-                },
+                }
                 Some(level) => {
                     if location.col > level {
                         return self.declaration_error("Class method indented too far");
@@ -402,7 +394,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let class_type = ClassType{
+        let class_type = ClassType {
             super_classes: supers,
             methods: methods,
         };
@@ -423,7 +415,7 @@ impl<'a> Parser<'a> {
 
         let ftype = self.parse_fn_type();
 
-        let method = ClassMethod{
+        let method = ClassMethod {
             name: name,
             ftype: ftype,
         };
@@ -467,7 +459,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                     new_indent = Some(location.col);
-                },
+                }
                 Some(level) => {
                     if location.col > level {
                         let err = self.declaration_error("Type field indented too far");
@@ -485,17 +477,17 @@ impl<'a> Parser<'a> {
                 _ => {
                     let err = self.declaration_error("Expected a field name");
                     return Err(err);
-                },
+                }
             };
 
             let field_type = self.parse_type();
 
             match self.next_token() {
-                None | Some(Token::Newline) => {},
+                None | Some(Token::Newline) => {}
                 _ => {
                     let err = self.declaration_error("Expected a newline after a type field");
                     return Err(err);
-                },
+                }
             }
 
             fields.push((field_name, field_type))
@@ -510,7 +502,7 @@ impl<'a> Parser<'a> {
             Some(Token::ValueName(n)) => n.clone(),
             _ => {
                 return self.declaration_error("Expected the function's name after 'fn'");
-            },
+            }
         };
 
         let mut arg_names = vec![];
@@ -527,10 +519,10 @@ impl<'a> Parser<'a> {
                 Some(Token::ValueName(n)) => {
                     self.next();
                     arg_names.push(n.clone());
-                },
+                }
                 _ => {
                     return self.declaration_error("Expected an argument name");
-                },
+                }
             }
 
             match self.peek_token() {
@@ -538,10 +530,10 @@ impl<'a> Parser<'a> {
                 Some(Token::RParen) => break,
                 Some(Token::Comma) => {
                     arg_types.push(None);
-                },
+                }
                 Some(_) => {
                     arg_types.push(Some(self.parse_type()));
-                },
+                }
             }
 
             if self.is_next(Token::Comma) {
@@ -579,7 +571,7 @@ impl<'a> Parser<'a> {
             Err(dref) => return dref,
         };
 
-        let fd = FunctionDecl{
+        let fd = FunctionDecl {
             name: name,
             arg_names: arg_names,
             fn_type: fn_type,
@@ -597,23 +589,23 @@ impl<'a> Parser<'a> {
     ) -> Result<Option<TypeRef>, DeclarationRef> {
         let provided_args: Vec<TypeRef> = arg_types.iter().filter_map(|x| *x).collect();
 
-        let needs_type_defined = !provided_args.is_empty() ||
-            ret_type.is_some() ||
-            !constraints.is_empty();
+        let needs_type_defined =
+            !provided_args.is_empty() || ret_type.is_some() || !constraints.is_empty();
 
         if !needs_type_defined {
             return Ok(None);
         }
 
         if provided_args.len() < arg_types.len() {
-            let dref = self.declaration_error("Some arguments on a typed function are missing types");
+            let dref =
+                self.declaration_error("Some arguments on a typed function are missing types");
             return Err(dref);
         }
 
         // When no return type is written but at least one arg is typed,
         // void is assumed
         let ret = ret_type.unwrap_or_else(|| self.syntax.add_type(Type::Void));
-        let func_type = FuncType{
+        let func_type = FuncType {
             arg_types: provided_args,
             ret_type: ret,
             constraints: constraints,
@@ -629,10 +621,10 @@ impl<'a> Parser<'a> {
             match self.peek_token() {
                 None | Some(Token::Newline) => {
                     return;
-                },
+                }
                 _ => {
                     self.next();
-                },
+                }
             }
         }
     }
@@ -641,9 +633,7 @@ impl<'a> Parser<'a> {
         match self.next() {
             // A declaration can be the last line in a file
             None | Some((Token::Newline, _)) => result,
-            Some(_) => {
-                self.declaration_error("Unexpected token after declaration")
-            },
+            Some(_) => self.declaration_error("Unexpected token after declaration"),
         }
     }
 
@@ -654,7 +644,7 @@ impl<'a> Parser<'a> {
             Some(t) => t,
             None => {
                 return self.type_error("Expected a type, got EOF");
-            },
+            }
         };
 
         match tok {
@@ -666,14 +656,12 @@ impl<'a> Parser<'a> {
                     // TODO: handle tuple types
                     self.type_error("unexpected token after a paren")
                 }
-            },
-            Token::KeywordFn => {
-                self.parse_fn_type()
-            },
+            }
+            Token::KeywordFn => self.parse_fn_type(),
             Token::ValueName(name) => {
                 let t = Type::TypeVar(name.clone());
                 self.syntax.add_type(t)
-            },
+            }
             Token::TypeName(name) => {
                 if self.is_next(Token::Less) {
                     self.parse_generic(name.clone())
@@ -681,10 +669,8 @@ impl<'a> Parser<'a> {
                     let t = Type::TypeName(name.clone());
                     self.syntax.add_type(t)
                 }
-            },
-            _ => {
-                self.type_error("Bad type")
-            },
+            }
+            _ => self.type_error("Bad type"),
         }
     }
 
@@ -699,7 +685,7 @@ impl<'a> Parser<'a> {
             match self.peek_token() {
                 None => break,
                 Some(Token::Greater) => break,
-                _ => {},
+                _ => {}
             }
 
             let param = self.parse_type();
@@ -732,7 +718,7 @@ impl<'a> Parser<'a> {
             match self.peek_token() {
                 None => break,
                 Some(Token::RParen) => break,
-                _ => {},
+                _ => {}
             }
 
             let arg = self.parse_type();
@@ -765,7 +751,7 @@ impl<'a> Parser<'a> {
             vec![]
         };
 
-        let func_type = FuncType{
+        let func_type = FuncType {
             arg_types: args,
             ret_type: ret,
             constraints: constraints,
@@ -798,7 +784,10 @@ impl<'a> Parser<'a> {
             _ => return Err("Expected a class name after the constrained type"),
         };
 
-        Ok(Constraint{constrained: constrained, class: class})
+        Ok(Constraint {
+            constrained: constrained,
+            class: class,
+        })
     }
 
     // Is a type about to start?
@@ -819,7 +808,7 @@ impl<'a> Parser<'a> {
         let (token, location) = match self.peek() {
             None => {
                 return self.statement_error("Expected a statement, got EOF");
-            },
+            }
             Some(tok) => tok,
         };
 
@@ -839,40 +828,42 @@ impl<'a> Parser<'a> {
                 self.next();
                 let stmt = self.parse_return(new_indent);
                 self.eat_trailing_newline(stmt)
-            },
+            }
             Token::KeywordLet => {
                 self.next();
                 let stmt = self.parse_let(new_indent);
                 self.eat_trailing_newline(stmt)
-            },
+            }
             Token::KeywordIf => {
                 self.next();
                 self.parse_if(new_indent)
-            },
+            }
             Token::KeywordWhile => {
                 self.next();
                 self.parse_while(new_indent)
-            },
+            }
             Token::KeywordFor => {
                 self.next();
                 self.parse_for(new_indent)
-            },
+            }
             Token::KeywordMatch => {
                 self.next();
                 self.parse_match(new_indent)
-            },
+            }
             _ => {
                 let expr = self.parse_expression(new_indent);
                 if self.is_next(Token::Equals) {
                     self.next();
                     let value = self.parse_expression(new_indent);
-                    let stmt = self.syntax.add_statement(Statement::AssignStmt(expr, value));
+                    let stmt = self
+                        .syntax
+                        .add_statement(Statement::AssignStmt(expr, value));
                     self.eat_trailing_newline(stmt)
                 } else {
                     let stmt = self.syntax.add_statement(Statement::ExprStmt(expr));
                     self.eat_trailing_newline(stmt)
                 }
-            },
+            }
         }
     }
 
@@ -880,9 +871,7 @@ impl<'a> Parser<'a> {
         match self.next() {
             // A statement can be the last line in a file
             None | Some((Token::Newline, _)) => result,
-            Some(_) => {
-                self.statement_error("Unexpected token after statement")
-            },
+            Some(_) => self.statement_error("Unexpected token after statement"),
         }
     }
 
@@ -900,7 +889,10 @@ impl<'a> Parser<'a> {
             Err(sref) => return sref,
         };
 
-        let match_statement = MatchStatement{matched: matched, matchers: matchers};
+        let match_statement = MatchStatement {
+            matched: matched,
+            matchers: matchers,
+        };
         let stmt = Statement::MatchStmt(Box::new(match_statement));
         self.syntax.add_statement(stmt)
     }
@@ -940,7 +932,7 @@ impl<'a> Parser<'a> {
                     }
                     new_indent = Some(location.col);
                     location.col
-                },
+                }
                 Some(level) => {
                     if location.col > level {
                         let err_stmt = self.statement_error("Matcher indented too far");
@@ -950,7 +942,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                     level
-                },
+                }
             };
 
             let matcher = self.parse_match_arm(indent)?;
@@ -964,7 +956,7 @@ impl<'a> Parser<'a> {
         let location = match self.peek() {
             None => {
                 return Err(self.statement_error("expected a pattern, got EOF"));
-            },
+            }
             Some((_, loc)) => loc,
         };
 
@@ -975,7 +967,10 @@ impl<'a> Parser<'a> {
 
         let pat = self.parse_pattern();
         let block = self.parse_block(indent);
-        Ok(Matcher{pattern: pat, body: block})
+        Ok(Matcher {
+            pattern: pat,
+            body: block,
+        })
     }
 
     fn parse_pattern(&mut self) -> Pattern {
@@ -984,7 +979,7 @@ impl<'a> Parser<'a> {
             None => {
                 self.add_error("unexpected EOF in pattern");
                 return Pattern::PatternParseError;
-            },
+            }
         };
 
         match tok {
@@ -998,7 +993,7 @@ impl<'a> Parser<'a> {
                 } else {
                     Pattern::Name(name.clone())
                 }
-            },
+            }
             Token::TypeName(name) => self.parse_struct_pattern(name.clone()),
             Token::IntLiteral(i) => Pattern::Literal(Literal::Integer(*i)),
             Token::FloatLiteral(f) => Pattern::Literal(Literal::Float(*f)),
@@ -1007,7 +1002,7 @@ impl<'a> Parser<'a> {
             _ => {
                 self.add_error("invalid pattern");
                 Pattern::PatternParseError
-            },
+            }
         }
     }
 
@@ -1021,7 +1016,7 @@ impl<'a> Parser<'a> {
                 match self.peek() {
                     None => break,
                     Some((Token::RParen, _)) => break,
-                    _ => {},
+                    _ => {}
                 }
 
                 let pat = self.parse_pattern();
@@ -1030,7 +1025,7 @@ impl<'a> Parser<'a> {
                 match self.peek() {
                     Some((Token::Comma, _)) => {
                         self.next();
-                    },
+                    }
                     _ => break,
                 }
             }
@@ -1041,7 +1036,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let struct_pattern = StructPattern{
+        let struct_pattern = StructPattern {
             struct_name: name,
             field_patterns: fields,
         };
@@ -1056,10 +1051,10 @@ impl<'a> Parser<'a> {
                 None => {
                     self.add_error("unclosed tuple pattern");
                     return Pattern::PatternParseError;
-                },
+                }
                 Some((Token::RParen, _)) => {
                     break;
-                },
+                }
                 _ => {
                     let pat = self.parse_pattern();
                     patterns.push(pat);
@@ -1068,12 +1063,12 @@ impl<'a> Parser<'a> {
                     match self.peek() {
                         Some((Token::Comma, _)) => {
                             self.next();
-                        },
+                        }
                         _ => {
                             break;
-                        },
+                        }
                     }
-                },
+                }
             }
         }
 
@@ -1095,7 +1090,11 @@ impl<'a> Parser<'a> {
         }
         let iterable = self.parse_expression(indent);
         let body = self.parse_block(indent);
-        let for_statement = ForStatement{variable: variable, iterable: iterable, body: body};
+        let for_statement = ForStatement {
+            variable: variable,
+            iterable: iterable,
+            body: body,
+        };
         let stmt = Statement::ForStmt(Box::new(for_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1103,7 +1102,10 @@ impl<'a> Parser<'a> {
     fn parse_while(&mut self, indent: u32) -> StatementRef {
         let test = self.parse_expression(indent);
         let body = self.parse_block(indent);
-        let while_statement = WhileStatement{test: test, body: body};
+        let while_statement = WhileStatement {
+            test: test,
+            body: body,
+        };
         let stmt = Statement::WhileStmt(Box::new(while_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1131,7 +1133,11 @@ impl<'a> Parser<'a> {
             None
         };
 
-        let if_statement = IfStatement{test: test, tbody: tbody, ebody: ebody};
+        let if_statement = IfStatement {
+            test: test,
+            tbody: tbody,
+            ebody: ebody,
+        };
         let stmt = Statement::IfStmt(Box::new(if_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1174,7 +1180,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                     new_indent = Some(location.col);
-                },
+                }
                 Some(level) => {
                     if location.col > level {
                         let err_stmt = self.statement_error("Statement too far indented");
@@ -1187,7 +1193,7 @@ impl<'a> Parser<'a> {
                         // The block has ended
                         break;
                     }
-                },
+                }
             }
 
             let stmt = self.parse_statement(new_indent);
@@ -1202,7 +1208,7 @@ impl<'a> Parser<'a> {
         let token = match self.peek() {
             None => {
                 return self.syntax.add_statement(Statement::Return);
-            },
+            }
             Some((t, _)) => t,
         };
 
@@ -1220,7 +1226,7 @@ impl<'a> Parser<'a> {
             Some((Token::ValueName(n), _)) => n.clone(),
             _ => {
                 return self.statement_error("Expected a name after let");
-            },
+            }
         };
 
         let mut tref = None;
@@ -1234,7 +1240,7 @@ impl<'a> Parser<'a> {
         }
 
         let expr = self.parse_expression(indent);
-        let let_stmt = LetStatement{
+        let let_stmt = LetStatement {
             variable: name,
             expl_type: tref,
             value: expr,
@@ -1259,20 +1265,20 @@ impl<'a> Parser<'a> {
             };
 
             let (op, precedence) = match token {
-                Token::DoubleOr      => (BinaryOp::BoolOr, 0),
-                Token::DoubleAnd     => (BinaryOp::BoolAnd, 1),
-                Token::DoubleEquals  => (BinaryOp::Equal, 2),
-                Token::NotEquals     => (BinaryOp::NotEqual, 2),
-                Token::Less          => (BinaryOp::Less, 3),
-                Token::LessEquals    => (BinaryOp::LessEqual, 3),
-                Token::Greater       => (BinaryOp::Greater, 3),
+                Token::DoubleOr => (BinaryOp::BoolOr, 0),
+                Token::DoubleAnd => (BinaryOp::BoolAnd, 1),
+                Token::DoubleEquals => (BinaryOp::Equal, 2),
+                Token::NotEquals => (BinaryOp::NotEqual, 2),
+                Token::Less => (BinaryOp::Less, 3),
+                Token::LessEquals => (BinaryOp::LessEqual, 3),
+                Token::Greater => (BinaryOp::Greater, 3),
                 Token::GreaterEquals => (BinaryOp::GreaterEqual, 3),
-                Token::Plus          => (BinaryOp::Plus, 4),
-                Token::Minus         => (BinaryOp::Minus, 4),
-                Token::Star          => (BinaryOp::Times, 5),
-                Token::Slash         => (BinaryOp::Divide, 5),
-                Token::Percent       => (BinaryOp::Mod, 5),
-                Token::DoubleStar    => (BinaryOp::Power, 6),
+                Token::Plus => (BinaryOp::Plus, 4),
+                Token::Minus => (BinaryOp::Minus, 4),
+                Token::Star => (BinaryOp::Times, 5),
+                Token::Slash => (BinaryOp::Divide, 5),
+                Token::Percent => (BinaryOp::Mod, 5),
+                Token::DoubleStar => (BinaryOp::Power, 6),
                 // Reached the end of the binary expressions
                 _ => break,
             };
@@ -1292,7 +1298,8 @@ impl<'a> Parser<'a> {
             debug_assert!(
                 unary_exprs.len() == 1 + operators.len(),
                 "have {:?} unary exprs and {:?} operators",
-                unary_exprs, operators
+                unary_exprs,
+                operators
             );
 
             let mut remaining_exprs: Vec<ExpressionRef> = vec![unary_exprs[0]];
@@ -1324,9 +1331,7 @@ impl<'a> Parser<'a> {
     // Unary operators and the value they apply to
     fn parse_unary(&mut self, indent: u32) -> ExpressionRef {
         let token = match self.peek() {
-            None => {
-                return self.expression_error("Expected an expression, got EOF")
-            },
+            None => return self.expression_error("Expected an expression, got EOF"),
             Some((t, _)) => t,
         };
 
@@ -1337,24 +1342,22 @@ impl<'a> Parser<'a> {
                 let op = UnaryOp::BoolNot;
                 let expr = Expression::UnaryOperator(op, inner);
                 self.syntax.add_expression(expr)
-            },
+            }
             Token::Tilda => {
                 self.next();
                 let inner = self.parse_unary(indent);
                 let op = UnaryOp::BitInvert;
                 let expr = Expression::UnaryOperator(op, inner);
                 self.syntax.add_expression(expr)
-            },
+            }
             Token::Minus => {
                 self.next();
                 let inner = self.parse_unary(indent);
                 let op = UnaryOp::Negate;
                 let expr = Expression::UnaryOperator(op, inner);
                 self.syntax.add_expression(expr)
-            },
-            _ => {
-                self.parse_term(indent)
-            },
+            }
+            _ => self.parse_term(indent),
         }
     }
 
@@ -1384,36 +1387,34 @@ impl<'a> Parser<'a> {
                     }
 
                     if self.require_next(Token::RParen) {
-                        self.syntax.add_expression(Expression::FunctionCall(value, args))
+                        self.syntax
+                            .add_expression(Expression::FunctionCall(value, args))
                     } else {
                         self.expression_error("Expected a )")
                     }
-                },
+                }
                 Some((Token::LBracket, _)) => {
                     self.next();
                     let offset = self.parse_expression(indent);
 
                     if self.require_next(Token::RBracket) {
-                        self.syntax.add_expression(Expression::OffsetAccess(value, offset))
+                        self.syntax
+                            .add_expression(Expression::OffsetAccess(value, offset))
                     } else {
                         self.expression_error("Expected a ]")
                     }
-                },
+                }
                 Some((Token::Dot, _)) => {
                     self.next();
                     // expecting a field name
                     match self.next() {
-                        Some((Token::ValueName(s), _)) => {
-                            self.syntax.add_expression(Expression::FieldAccess(value, s.clone()))
-                        },
-                        _ => {
-                            self.expression_error("Expected a field name after a dot")
-                        }
+                        Some((Token::ValueName(s), _)) => self
+                            .syntax
+                            .add_expression(Expression::FieldAccess(value, s.clone())),
+                        _ => self.expression_error("Expected a field name after a dot"),
                     }
-                },
-                _ => {
-                    return value
-                },
+                }
+                _ => return value,
             }
         }
     }
@@ -1421,9 +1422,7 @@ impl<'a> Parser<'a> {
     // Literals, variables, and parentheticals
     fn parse_single_value(&mut self, indent: u32) -> ExpressionRef {
         let token = match self.next() {
-            None => {
-                return self.expression_error("Expected a value, got EOF")
-            },
+            None => return self.expression_error("Expected a value, got EOF"),
             Some((t, _)) => t,
         };
 
@@ -1435,27 +1434,25 @@ impl<'a> Parser<'a> {
                 } else {
                     self.expression_error("Expected a )")
                 }
-            },
+            }
             Token::IntLiteral(i) => {
                 let expr = Expression::Literal(Literal::Integer(*i));
                 self.syntax.add_expression(expr)
-            },
+            }
             Token::FloatLiteral(f) => {
                 let expr = Expression::Literal(Literal::Float(*f));
                 self.syntax.add_expression(expr)
-            },
+            }
             Token::StringLiteral(s) => {
                 let expr = Expression::Literal(Literal::String(s.clone()));
                 self.syntax.add_expression(expr)
-            },
+            }
             Token::ValueName(s) => {
                 let expr = Expression::Variable(s.clone());
                 self.syntax.add_expression(expr)
-            },
-            Token::TypeName(s) =>
-                self.parse_struct_expression(s.clone(), indent),
-            Token::KeywordFn =>
-                self.parse_lambda(indent),
+            }
+            Token::TypeName(s) => self.parse_struct_expression(s.clone(), indent),
+            Token::KeywordFn => self.parse_lambda(indent),
             _ => self.expression_error("Unexpected token for a value"),
         }
     }
@@ -1494,7 +1491,10 @@ impl<'a> Parser<'a> {
             self.next();
         }
 
-        let lambda = Lambda{arg_names: arg_names, body: body};
+        let lambda = Lambda {
+            arg_names: arg_names,
+            body: body,
+        };
         let expr = Expression::Lambda(Box::new(lambda));
         self.syntax.add_expression(expr)
     }
@@ -1508,13 +1508,20 @@ impl<'a> Parser<'a> {
             loop {
                 let field_name = match self.peek_token() {
                     // Skip newlines inside the expression
-                    Some(Token::Newline) => { self.next(); continue },
-                    Some(Token::ValueName(n)) => { self.next(); n.clone() },
+                    Some(Token::Newline) => {
+                        self.next();
+                        continue;
+                    }
+                    Some(Token::ValueName(n)) => {
+                        self.next();
+                        n.clone()
+                    }
                     _ => break, // includes RBrace
                 };
 
                 if !self.require_next(Token::Colon) {
-                    return self.expression_error("Expected a : after the name of a structure field");
+                    return self
+                        .expression_error("Expected a : after the name of a structure field");
                 }
 
                 while self.is_next(Token::Newline) {
@@ -1525,7 +1532,9 @@ impl<'a> Parser<'a> {
                 fields.push((field_name, value));
 
                 match self.peek_token() {
-                    Some(Token::Comma) => { self.next(); },
+                    Some(Token::Comma) => {
+                        self.next();
+                    }
                     _ => break,
                 }
             }
@@ -1539,7 +1548,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let struct_expr = StructExpression{
+        let struct_expr = StructExpression {
             struct_name: name,
             fields: fields,
         };
@@ -1603,7 +1612,9 @@ impl<'a> Parser<'a> {
 
     fn declaration_error(&mut self, message: &str) -> DeclarationRef {
         self.add_error(message);
-        let dref = self.syntax.add_declaration(Declaration::DeclarationParseError);
+        let dref = self
+            .syntax
+            .add_declaration(Declaration::DeclarationParseError);
         self.skip_to_newline();
         dref
     }
@@ -1624,7 +1635,10 @@ impl<'a> Parser<'a> {
         // Back up one token, because often the relevant token has already been
         // read
         let start = if index > 0 { index - 1 } else { index };
-        self.tokens.iter().skip(start).take(5)
+        self.tokens
+            .iter()
+            .skip(start)
+            .take(5)
             .map(|(tok, _)| format!("{}", tok))
             .collect::<Vec<String>>()
             .join(" ")
@@ -1639,7 +1653,9 @@ impl<'a> Parser<'a> {
         };
         format!(
             "error: {} at around {}. Tokens: {}",
-            message, location, self.preview(index)
+            message,
+            location,
+            self.preview(index)
         )
     }
 }

@@ -46,8 +46,8 @@ fn expand_paths(root: &String) -> (Vec<String>, String) {
     }
 }
 
-// when passed a project directory, walk that directory tree to find the .ik
-// files in there.
+/// when passed a project directory, walk that directory tree to find the .ik
+/// files in there.
 fn find_ik_files_in_directory(root: &String) -> Vec<String> {
     let mut paths: Vec<String> = Vec::new();
     for entry in WalkDir::new(root) {
@@ -61,10 +61,10 @@ fn find_ik_files_in_directory(root: &String) -> Vec<String> {
                 if extension == "ik" {
                     paths.push(path.to_str().unwrap().to_owned());
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("error: {}", e);
-            },
+            }
         }
     }
     paths

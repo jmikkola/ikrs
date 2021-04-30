@@ -16,13 +16,17 @@ fn assert_parses_pattern(input: &str, expected: &str) {
 fn assert_parses_stmt(input: &str, expected: &str) {
     let to_trim: &[_] = &[' ', '\n'];
     let trimmed = input.trim_start_matches(to_trim);
-    assert_parses(trimmed, expected, true, |parser| parser.parse_statement(None));
+    assert_parses(trimmed, expected, true, |parser| {
+        parser.parse_statement(None)
+    });
 }
 
 fn assert_parses_decl(input: &str, expected: &str) {
     let to_trim: &[_] = &[' ', '\n'];
     let trimmed = input.trim_start_matches(to_trim);
-    assert_parses(trimmed, expected, true, |parser| parser.parse_declaration(None));
+    assert_parses(trimmed, expected, true, |parser| {
+        parser.parse_declaration(None)
+    });
 }
 
 fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
@@ -38,20 +42,28 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
     let s = &parser.syntax;
     let errors = &s.errors;
 
-    let inspected: Vec<String> = s.declarations.iter()
+    let inspected: Vec<String> = s
+        .declarations
+        .iter()
         .map(|d| inspect(d, s).unwrap())
         .collect();
 
     assert_eq!(
-        expected_decls, inspected,
-        "input: {}, errors: {}", input, errors.join(", ")
+        expected_decls,
+        inspected,
+        "input: {}, errors: {}",
+        input,
+        errors.join(", ")
     );
     assert_eq!("", errors.join(", "), "{}", input);
     assert_eq!(true, is_done, "parser left extra input");
 }
 
 fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
-where F: Fn(&mut Parser) -> I, I: Inspect {
+where
+    F: Fn(&mut Parser) -> I,
+    I: Inspect,
+{
     let tokens = tokenize(input);
     let mut parser = Parser::new("test".to_owned(), &tokens.tokens);
     let inspectable = f(&mut parser);
@@ -60,8 +72,11 @@ where F: Fn(&mut Parser) -> I, I: Inspect {
     let errors = &s.errors;
     let inspected = inspect(inspectable, &s).unwrap();
     assert_eq!(
-        expected, inspected.as_str(),
-        "input: {}, errors: {}", input, errors.join(", "),
+        expected,
+        inspected.as_str(),
+        "input: {}, errors: {}",
+        input,
+        errors.join(", "),
     );
     assert_eq!("", errors.join(", "), "{}", input);
     if require_done {
@@ -207,7 +222,9 @@ fn test_if_with_two_statements() {
 fn test_if_with_statement_after() {
     let input = "if 1:\n  return\nreturn    123\n";
     let expected = "(if 1 (do (return)))";
-    assert_parses(input, expected, false, |parser| parser.parse_statement(None));
+    assert_parses(input, expected, false, |parser| {
+        parser.parse_statement(None)
+    });
 }
 
 #[test]
@@ -352,7 +369,10 @@ fn test_type_with_generics() {
     assert_parses_type("Foo<>", "(generic Foo)");
     assert_parses_type("Foo<Bar,>", "(generic Foo Bar)");
     assert_parses_type("Foo<bar,>", "(generic Foo (tvar bar))");
-    assert_parses_type("Result<Error, Option<Int>>", "(generic Result Error (generic Option Int))");
+    assert_parses_type(
+        "Result<Error, Option<Int>>",
+        "(generic Result Error (generic Option Int))",
+    );
 }
 
 #[test]
@@ -377,17 +397,17 @@ fn test_function_type() {
 fn test_function_type_with_constraints() {
     assert_parses_type(
         "fn(t) t where t: Sized",
-        "(function ((tvar t)) (tvar t) where (((tvar t) Sized)))"
+        "(function ((tvar t)) (tvar t) where (((tvar t) Sized)))",
     );
 
     assert_parses_type(
         "fn(t) where t: Sized",
-        "(function ((tvar t)) void where (((tvar t) Sized)))"
+        "(function ((tvar t)) void where (((tvar t) Sized)))",
     );
 
     assert_parses_type(
         "fn(t) t where t: A, t: B",
-        "(function ((tvar t)) (tvar t) where (((tvar t) A) ((tvar t) B)))"
+        "(function ((tvar t)) (tvar t) where (((tvar t) A) ((tvar t) B)))",
     );
 }
 
@@ -411,7 +431,10 @@ fn main():
   println("Hello, world")
     "#;
 
-    assert_parses_decl(decl, "(defn main () (do (expr (call println \"Hello, world\"))))");
+    assert_parses_decl(
+        decl,
+        "(defn main () (do (expr (call println \"Hello, world\"))))",
+    );
 }
 
 #[test]
@@ -431,7 +454,10 @@ fn add(a Int, b Int) Int:
   return a + b
     "#;
 
-    assert_parses_decl(decl, "(defn add (a b) :: (function (Int Int) Int) (do (return (binary + a b))))");
+    assert_parses_decl(
+        decl,
+        "(defn add (a b) :: (function (Int Int) Int) (do (return (binary + a b))))",
+    );
 }
 
 #[test]
@@ -441,7 +467,10 @@ fn save(a Int, b Int):
    foo(a, b)
     "#;
 
-    assert_parses_decl(decl, "(defn save (a b) :: (function (Int Int) void) (do (expr (call foo a b))))");
+    assert_parses_decl(
+        decl,
+        "(defn save (a b) :: (function (Int Int) void) (do (expr (call foo a b))))",
+    );
 }
 
 #[test]
@@ -513,7 +542,6 @@ fn counter() fn() Int:
                     (return f)))";
     assert_parses_decl(decl, expected);
 }
-
 
 #[test]
 fn test_struct_type_decl() {
@@ -587,7 +615,7 @@ type Addable class:
 
 #[test]
 fn test_class_extends() {
-   let decl = r#"
+    let decl = r#"
 type A class extends B, C:
   fn f(Self)
   fn g(Self, Int) String
@@ -638,7 +666,6 @@ type Addable class:
                     where (((tvar other) ToInt))))))";
     assert_parses_decl(decl, expected);
 }
-
 
 #[test]
 fn test_parses_file() {

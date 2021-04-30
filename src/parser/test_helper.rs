@@ -1,6 +1,6 @@
 use super::ast;
-use super::tokenize::tokenize;
 use super::parser::parse;
+use super::tokenize::tokenize;
 
 pub fn tokenize_and_parse(text: &str) -> Option<ast::Syntax> {
     let to_trim: &[_] = &[' ', '\n'];
