@@ -1,9 +1,23 @@
-use std::cmp::{Ord, Ordering, PartialOrd};
+use std::cmp::{Ord, Ordering, PartialOrd, min};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Location {
     pub col: u32,
     pub line: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Region {
+    start: Location,
+    end: Location,
+}
+
+// Used to describe a part of a file that should be shown
+pub struct DisplaySelection {
+    // Region of text to highlight
+    highlight: Region,
+    // How many lines before and after to also render
+    context: u32,
 }
 
 impl Location {
@@ -60,9 +74,113 @@ impl Ord for Location {
     }
 }
 
+impl Region {
+    pub fn new(start: Location, end: Location) -> Self {
+	Region {start, end}
+    }
+
+    // this trusts you that you haven't specified a length that goes past the end of the line
+    pub fn for_word(start: Location, length: u32) -> Self {
+	let end = Location{line: start.line, col: start.col + length};
+	Region::new(start, end)
+    }
+
+    pub fn to_display_selection(&self, context: u32) -> DisplaySelection {
+	DisplaySelection::new(self.clone(), context)
+    }
+}
+
+impl ToString for Region {
+    fn to_string(&self) -> String {
+	format!("from {} to {}", self.start.to_string(), self.end.to_string())
+    }
+}
+
+impl DisplaySelection {
+    pub fn new(highlight: Region, context: u32) -> Self {
+	DisplaySelection{highlight, context}
+    }
+
+    pub fn render_selection(&self, file: &str) -> String {
+	let lines: Vec<String> = file.lines().map(|l| l.to_string()).collect();
+
+	let mut result = String::new();
+
+	// copy starting context
+	let start = self.highlight.start.line;
+	for line in (start - min(start, self.context))..start {
+	    result += lines[line as usize].as_str();
+	    result += "\n";
+	}
+
+	// copy selected region and highlight it
+	let end = self.highlight.end.line;
+	for line in start..=end {
+	    result += lines[line as usize].as_str();
+	    result += "\n";
+
+	    // Janky hack for now: assume that the highlight is on a single line
+	    for _ in 0..self.highlight.start.col {
+		result += " ";
+	    }
+	    for _ in self.highlight.start.col..self.highlight.end.col {
+		result += "^";
+	    }
+	    result += "\n";
+	}
+
+	// copy ending context
+	for line in (end + 1)..=(end + self.context) {
+	    result += lines[line as usize].as_str();
+	    result += "\n";
+	}
+
+	result
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    const EXAMPLE_FILE: &str = r#"
+	fn main():
+	    let a = 1
+	    let b = 0
+	    while a < 200:
+		print(to_string(a))
+		print("\n")
+		let temp = a
+		a = a + b
+		b = temp
+"#;
+
+    // Clean up leading newline
+    fn trim(text: &str) -> &str {
+	let to_trim: &[_] = &['\n'];
+	text.trim_start_matches(to_trim)
+    }
+
+    #[test]
+    fn test_render_selection_word() {
+	let start = Location{line: 3, col: 12};
+	let region = Region::for_word(start, 5);
+	let selection = region.to_display_selection(2);
+
+
+	let result = selection.render_selection(trim(EXAMPLE_FILE));
+
+	let expected = r#"
+	    let a = 1
+	    let b = 0
+	    while a < 200:
+            ^^^^^
+		print(to_string(a))
+		print("\n")
+"#;
+
+	assert_eq!(trim(expected).to_string(), result);
+    }
 
     #[test]
     fn test_ordering() {

@@ -54,7 +54,7 @@ impl Package {
     }
 
     fn add_file_path(&mut self, filename: String) {
-        self.file_paths.push(filename.clone());
+        self.file_paths.push(filename);
     }
 
     fn parse_files(&mut self, tokenize_only: bool) -> io::Result<()> {
@@ -92,7 +92,7 @@ impl Package {
     fn check_declared_names(&self) -> io::Result<()> {
         let allowed_to_skip_package_decl = self.package_name == "main";
 
-        let expected_name = self.package_name.split(".").last().unwrap();
+        let expected_name = self.package_name.split('.').last().unwrap();
 
         for syntax in self.syntaxes.iter() {
             let first_decl = if let Some(decl) = syntax.declarations.get(0) {
