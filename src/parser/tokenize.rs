@@ -404,11 +404,7 @@ pub fn tokenize(text: &str) -> Tokens {
         }
     }
 
-    Tokens {
-        tokens: tokens,
-        comments: comments,
-        saw_unknown: saw_unknown,
-    }
+    Tokens {tokens, comments, saw_unknown}
 }
 
 fn name_token(name: String) -> Token {
@@ -466,7 +462,7 @@ fn merge_tokens(tokens: &Tokens) -> Vec<(Result<Token, Comment>, Location)> {
         .map(|(t, l)| (Ok(t), l))
         .chain(tokens.comments.iter().cloned().map(|(c, l)| (Err(c), l)))
         .collect();
-    results.sort_by_key(|(_, l)| l.clone());
+    results.sort_by_key(|(_, l)| *l);
     results
 }
 
@@ -503,7 +499,7 @@ fn untokenize(tokens: Tokens) -> String {
         result.push_str(&formatted);
     }
 
-    return result;
+    result
 }
 
 #[cfg(test)]
@@ -578,7 +574,7 @@ mod test {
         assert_is_token(IntLiteral(0), "0");
         assert_is_token(IntLiteral(123), "123");
         assert_is_token(FloatLiteral(123.), "123.0");
-        assert_is_token(FloatLiteral(3.14159), "3.14159");
+        assert_is_token(FloatLiteral(7.95), "7.95");
 
         assert_tokens(vec![IntLiteral(2), Dot], "2.");
     }
