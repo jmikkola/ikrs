@@ -9,6 +9,7 @@ pub struct Tokens {
 }
 
 impl Tokens {
+    #[cfg(test)]
     pub fn has_unknown(&self) -> bool {
         self.saw_unknown
     }
@@ -21,6 +22,10 @@ impl Tokens {
 
     // Show where in the file the bad tokens were found
     pub fn display_unknown(&self) -> Vec<DisplaySelection> {
+	if !self.saw_unknown {
+	    return Vec::new();
+	}
+
         self.tokens.iter()
             .filter_map(|(tok, loc)| match tok {
                 Token::Unknown(s) => {
