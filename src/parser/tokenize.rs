@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use super::location::{Location, Region, DisplaySelection};
 use super::tokens::{Comment, Token};
 
@@ -8,10 +10,34 @@ pub struct Tokens {
     saw_unknown: bool,
 }
 
+#[derive(Debug)]
+pub struct UnknownTokensError {}
+
+impl std::fmt::Display for UnknownTokensError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	write!(f, "UnknownTokensError")
+    }
+}
+
+impl Error for UnknownTokensError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
 impl Tokens {
     #[cfg(test)]
     pub fn has_unknown(&self) -> bool {
         self.saw_unknown
+    }
+
+    pub fn get_error(&self) -> Option<Box<dyn Error + 'static>> {
+	if self.saw_unknown {
+	    let error = UnknownTokensError{};
+	    let boxed = Box::new(error) as Box<dyn Error + 'static>;
+	    return Some(boxed)
+	}
+	None
     }
 
     // pub fn just_tokens(&self) -> Vec<Token> {
@@ -691,5 +717,11 @@ fn main():
    return
 "#;
 	assert_eq!(expected, rendered);
+    }
+
+    #[test]
+    fn test_get_error() {
+	assert!(tokenize("fn main").get_error().is_none());
+	assert!(tokenize("???").get_error().is_some());
     }
 }
