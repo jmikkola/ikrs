@@ -274,12 +274,13 @@ pub fn tokenize(text: &str) -> Tokens {
             Unknown => {
                 debug_assert!(!current.is_empty());
                 if !(c.is_whitespace()
-                    || c == '('
-                    || c == ')'
-                    || c == '['
-                    || c == ']'
-                    || c == '{'
-                    || c == '}')
+		     || c == '('
+		     || c == ')'
+		     || c == '['
+		     || c == ']'
+		     || c == '{'
+		     || c == '}'
+		     || c == ':')
                 {
                     current.push(c);
                     continue;
