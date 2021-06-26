@@ -1,4 +1,4 @@
-use super::location::Location;
+use super::location::{Location, Region, DisplaySelection};
 use super::tokens::{Comment, Token};
 
 #[derive(Debug)]
@@ -19,14 +19,19 @@ impl Tokens {
     //         .collect()
     // }
 
-    // pub fn get_unknown(&self) -> Vec<&String> {
-    //     self.tokens.iter()
-    //         .filter_map(|(tok, _)| match tok {
-    //             Token::Unknown(s) => Some(s),
-    //             _ => None,
-    //         })
-    //         .collect()
-    // }
+    // Show where in the file the bad tokens were found
+    pub fn display_unknown(&self) -> Vec<DisplaySelection> {
+        self.tokens.iter()
+            .filter_map(|(tok, loc)| match tok {
+                Token::Unknown(s) => {
+		    let region = Region::for_word(*loc, s.len());
+		    let selection = region.to_display_selection(2);
+		    Some(selection)
+		},
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 pub fn tokenize(text: &str) -> Tokens {
@@ -656,5 +661,29 @@ mod test {
         assert_untokenizes("2.to_string()");
         assert_untokenizes("2.2.to_string()");
         assert_untokenizes("2 . to_string()");
+    }
+
+    #[test]
+    fn test_renders_unknown_tokens() {
+	let file = r#"
+// should not be included in the context
+fn main():
+   let a = 1
+   ``| // bad token
+   return
+"#;
+
+	let tokens = tokenize(file);
+	let unknown = tokens.display_unknown();
+	assert_eq!(1, unknown.len());
+
+	let rendered = unknown[0].render_selection(file);
+	let expected = r#"fn main():
+   let a = 1
+   ``| // bad token
+   ^^^
+   return
+"#;
+	assert_eq!(expected, rendered);
     }
 }

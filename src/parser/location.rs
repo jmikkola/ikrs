@@ -80,8 +80,8 @@ impl Region {
     }
 
     // this trusts you that you haven't specified a length that goes past the end of the line
-    pub fn for_word(start: Location, length: u32) -> Self {
-	let end = Location{line: start.line, col: start.col + length};
+    pub fn for_word(start: Location, length: usize) -> Self {
+	let end = Location{line: start.line, col: start.col + (length as u32)};
 	Region::new(start, end)
     }
 
@@ -130,7 +130,8 @@ impl DisplaySelection {
 	}
 
 	// copy ending context
-	for line in (end + 1)..=(end + self.context) {
+	let last_line = min(end + self.context, lines.len() as u32 - 1);
+	for line in (end + 1)..=last_line {
 	    result += lines[line as usize].as_str();
 	    result += "\n";
 	}

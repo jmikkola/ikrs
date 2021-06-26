@@ -63,9 +63,15 @@ impl Package {
             let contents = read_path(file_path)?;
 
             let tokens = tokenize(contents.as_str());
-            if tokens.has_unknown() {
+	    let unknown = tokens.display_unknown();
+	    if !unknown.is_empty() {
                 // TODO: Handle errors in one file and continue to the next
                 eprintln!("cannot parse {}, found unknown tokens", file_path);
+
+		for selection in unknown.iter() {
+		    eprintln!("\n{}", selection.render_selection(&contents));
+		}
+
                 let err = io::Error::new(io::ErrorKind::Other, "error");
                 return Err(err);
             }
