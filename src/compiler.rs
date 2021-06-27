@@ -3,7 +3,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, Context};
 
 use super::args::Args;
 use super::parser::ast;
@@ -23,7 +23,7 @@ pub fn compile(paths: Vec<String>, base_path: &String, args: &Args) -> Result<()
         println!("only parsing");
     }
 
-    let mut packages = CompileJob::gather_files(&paths, base_path)?;
+    let mut packages = CompileJob::gather_files(&paths, base_path);
     packages.parse_files(args.tokenize_only)?;
 
     if args.tokenize_only || args.parse_only {
@@ -59,7 +59,7 @@ impl Package {
         self.file_paths.push(filename);
     }
 
-    fn parse_files(&mut self, tokenize_only: bool) -> anyhow::Result<()> {
+    fn parse_files(&mut self, tokenize_only: bool) -> Result<()> {
         assert!(self.syntaxes.is_empty());
         for file_path in self.file_paths.iter() {
             let contents = read_path(file_path)?;
@@ -74,7 +74,8 @@ impl Package {
 		}
 
                 // TODO: Handle errors in one file and continue to the next
-		tokens.get_error()?;
+		tokens.get_error()
+		    .with_context(|| format!("invalid token found in {}", file_path))?;
             }
 
             if tokenize_only {
@@ -83,12 +84,12 @@ impl Package {
 
             let syntax = parse(file_path.clone(), &tokens);
             if syntax.has_errors() {
+		eprintln!("cannot parse {}, syntax error", file_path);
                 // TODO: Handle errors in one file and continue to the next
                 for e in syntax.errors.iter() {
                     eprintln!("{}", e);
                 }
-                let err = io::Error::new(io::ErrorKind::Other, "error");
-                return Err(anyhow!("error"));
+                return Err(anyhow!("parse error in {}", file_path));
             }
 
             self.syntaxes.push(syntax);
@@ -141,7 +142,7 @@ impl Package {
         }
     }
 
-    fn first_pass(&self) -> io::Result<()> {
+    fn first_pass(&self) -> Result<()> {
         for syntax in self.syntaxes.iter() {
             first_pass::check(syntax)?;
         }
@@ -165,7 +166,7 @@ impl CompileJob {
         }
     }
 
-    fn gather_files(paths: &Vec<String>, base_path: &String) -> io::Result<Self> {
+    fn gather_files(paths: &Vec<String>, base_path: &String) -> Self {
         let mut grouped = Self::new();
 
         for filename in paths.iter() {
@@ -173,7 +174,7 @@ impl CompileJob {
             grouped.add_file_to_package(package_path, filename);
         }
 
-        Ok(grouped)
+	grouped
     }
 
     fn add_file_to_package(&mut self, package_path: String, filename: &String) {
@@ -240,7 +241,7 @@ impl CompileJob {
         None
     }
 
-    fn check_modules_in_order(&self) -> io::Result<()> {
+    fn check_modules_in_order(&self) -> Result<()> {
         for group in self.package_ordering.iter() {
             // You could in theory check the items in `group` in parallel
             for module_name in group.iter() {
@@ -274,7 +275,7 @@ fn get_package_path(path: &String, base_path: &String) -> String {
     parts.join(".")
 }
 
-fn read_path(path: &String) -> io::Result<String> {
+fn read_path(path: &String) -> Result<String> {
     let f = File::open(path)?;
     let mut reader = io::BufReader::new(f);
     let mut contents = String::new();

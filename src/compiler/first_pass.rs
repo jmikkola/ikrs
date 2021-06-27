@@ -1,5 +1,6 @@
 use std::collections::HashSet;
-use std::io;
+
+use anyhow::{anyhow, Result};
 
 use super::super::parser::ast;
 
@@ -11,7 +12,7 @@ use super::super::parser::ast;
 // - The class hierarchy is acyclic
 // - The right number of generic args are passed to each type
 // - And more
-pub fn check(syntax: &ast::Syntax) -> io::Result<()> {
+pub fn check(syntax: &ast::Syntax) -> Result<()> {
     let mut state = CheckState::new(syntax);
     state.check_syntax();
     state.print_result()
@@ -48,7 +49,7 @@ impl<'a> CheckState<'a> {
         }
     }
 
-    fn print_result(&self) -> io::Result<()> {
+    fn print_result(&self) -> Result<()> {
         if self.errors.is_empty() {
             return Ok(());
         }
@@ -57,8 +58,7 @@ impl<'a> CheckState<'a> {
             println!("{}", error);
         }
 
-        let err = io::Error::new(io::ErrorKind::Other, "checks failed");
-        Err(err)
+        Err(anyhow!("checks failed"))
     }
 
     fn check_syntax(&mut self) {

@@ -46,7 +46,7 @@ fn test_grouping_files() {
     .map(|s| s.to_string())
     .collect();
 
-    let result = CompileJob::gather_files(&paths, &"".to_owned()).unwrap();
+    let result = CompileJob::gather_files(&paths, &"".to_owned());
 
     assert!(result.packages.len() == 3);
 

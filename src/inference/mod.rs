@@ -1,6 +1,6 @@
 // inference package
 
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
 use super::util::Indexed;
 
