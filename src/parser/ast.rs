@@ -871,7 +871,7 @@ impl Inspect for String {
 }
 
 #[cfg(test)]
-fn inspect_list<T>(items: &Vec<T>, f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result
+fn inspect_list<T>(items: &[T], f: &mut impl fmt::Write, s: &Syntax) -> fmt::Result
 where
     T: Inspect,
 {

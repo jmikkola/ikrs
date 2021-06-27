@@ -58,8 +58,8 @@ impl Inference {
         SRef(self.strings.store(s))
     }
 
-    pub fn get_string(&self, TypeRef(r): TypeRef) -> &String {
-        self.strings.get(r)
+    pub fn get_string(&self, TypeRef(r): TypeRef) -> &str {
+        self.strings.get(r).as_ref()
     }
 
     pub fn save_type(&mut self, t: Type) -> TypeRef {

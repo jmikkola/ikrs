@@ -16,7 +16,7 @@ pub mod first_pass;
 #[cfg(test)]
 mod test;
 
-pub fn compile(paths: Vec<String>, base_path: &String, args: &Args) -> Result<()> {
+pub fn compile(paths: Vec<String>, base_path: &str, args: &Args) -> Result<()> {
     if args.tokenize_only {
         println!("only tokenizing");
     } else if args.parse_only {
@@ -122,7 +122,7 @@ impl Package {
     }
 }
 
-fn parse_file(syntaxes: &mut Vec<ast::Syntax>, tokenize_only: bool, file_path: &String) -> Result<()> {
+fn parse_file(syntaxes: &mut Vec<ast::Syntax>, tokenize_only: bool, file_path: &str) -> Result<()> {
     let contents = read_path(file_path)?;
     let tokens = tokenize_with_errors(file_path, contents.as_str())?;
 
@@ -137,7 +137,7 @@ fn parse_file(syntaxes: &mut Vec<ast::Syntax>, tokenize_only: bool, file_path: &
 }
 
 // tokenize `contents` and print any errors
-fn tokenize_with_errors(file_path: &String, contents: &str) -> Result<Tokens> {
+fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
     let tokens = tokenize(contents);
     let unknown = tokens.display_unknown();
     if !unknown.is_empty() {
@@ -154,8 +154,8 @@ fn tokenize_with_errors(file_path: &String, contents: &str) -> Result<Tokens> {
 }
 
 // parse `tokens` and print any errors
-fn parse_with_errors(file_path: &String, tokens: &Tokens) -> Result<ast::Syntax> {
-    let syntax = parse(file_path.clone(), &tokens);
+fn parse_with_errors(file_path: &str, tokens: &Tokens) -> Result<ast::Syntax> {
+    let syntax = parse(file_path, &tokens);
     if syntax.has_errors() {
 	eprintln!("cannot parse {}, syntax error", file_path);
         // TODO: Handle errors in one file and continue to the next
@@ -184,7 +184,7 @@ impl CompileJob {
         }
     }
 
-    fn gather_files(paths: &Vec<String>, base_path: &String) -> Self {
+    fn gather_files(paths: &[String], base_path: &str) -> Self {
         let mut grouped = Self::new();
 
         for filename in paths.iter() {
@@ -195,16 +195,16 @@ impl CompileJob {
 	grouped
     }
 
-    fn add_file_to_package(&mut self, package_path: String, filename: &String) {
+    fn add_file_to_package(&mut self, package_path: String, filename: &str) {
         for pck in self.packages.iter_mut() {
             if pck.package_name == package_path {
-                pck.file_paths.push(filename.clone());
+                pck.file_paths.push(filename.to_string());
                 return;
             }
         }
 
         let mut pkg = Package::new(package_path);
-        pkg.add_file_path(filename.clone());
+        pkg.add_file_path(filename.to_string());
         self.packages.push(pkg);
     }
 
@@ -248,9 +248,9 @@ impl CompileJob {
         graph
     }
 
-    fn get_package_by_name(&self, name: &String) -> Option<&Package> {
+    fn get_package_by_name(&self, name: &str) -> Option<&Package> {
         for pkg in self.packages.iter() {
-            if &pkg.package_name == name {
+            if pkg.package_name == name {
                 return Some(pkg);
             }
         }
@@ -271,7 +271,7 @@ impl CompileJob {
     }
 }
 
-fn get_package_path(path: &String, base_path: &String) -> String {
+fn get_package_path(path: &str, base_path: &str) -> String {
     let mut parts: Vec<String> = path::Path::new(path)
         .strip_prefix(base_path)
         .unwrap()
@@ -292,7 +292,7 @@ fn get_package_path(path: &String, base_path: &String) -> String {
     parts.join(".")
 }
 
-fn read_path(path: &String) -> Result<String> {
+fn read_path(path: &str) -> Result<String> {
     let f = File::open(path)?;
     let mut reader = io::BufReader::new(f);
     let mut contents = String::new();

@@ -34,7 +34,7 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
     let trimmed = input.trim_start_matches(to_trim);
 
     let tokens = tokenize(trimmed);
-    let mut parser = Parser::new("test".to_owned(), &tokens.tokens);
+    let mut parser = Parser::new("test", &tokens.tokens);
 
     parser.parse_file();
 
@@ -65,7 +65,7 @@ where
     I: Inspect,
 {
     let tokens = tokenize(input);
-    let mut parser = Parser::new("test".to_owned(), &tokens.tokens);
+    let mut parser = Parser::new("test", &tokens.tokens);
     let inspectable = f(&mut parser);
     let is_done = parser.is_done();
     let s = parser.syntax;

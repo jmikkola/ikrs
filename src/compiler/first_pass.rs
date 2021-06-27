@@ -128,7 +128,7 @@ impl<'a> CheckState<'a> {
         self.package_decl_set = true;
     }
 
-    fn check_import_location(&mut self, import_name: &String) {
+    fn check_import_location(&mut self, import_name: &str) {
         if self.saw_non_header_decl {
             let err = format!(
                 "import statement must be above other declarations: import {}",
@@ -285,16 +285,16 @@ impl<'a> CheckState<'a> {
         // TODO
     }
 
-    fn is_type_defined(&self, typ: &String) -> bool {
+    fn is_type_defined(&self, typ: &str) -> bool {
         self.is_type_builtin(typ) || self.is_type_defined_in_module(typ)
     }
 
-    fn is_type_defined_in_module(&self, typ: &String) -> bool {
+    fn is_type_defined_in_module(&self, typ: &str) -> bool {
         self.types_declared.contains(typ)
     }
 
-    fn is_type_builtin(&self, typ: &String) -> bool {
-        match typ.as_str() {
+    fn is_type_builtin(&self, typ: &str) -> bool {
+        match typ {
             "Bool" => true,
             "Char" => true,
             "Float" => true,
@@ -321,14 +321,14 @@ mod test {
         tokenize_and_parse(file).expect("cannot parse example in test")
     }
 
-    fn get_errors<'a>(file: &str) -> Vec<String> {
+    fn get_errors(file: &str) -> Vec<String> {
         let syntax = must_parse(file);
         let mut state = CheckState::new(&syntax);
         state.check_syntax();
         state.errors
     }
 
-    fn errors_match(errors: &Vec<String>, pattern: &str) -> bool {
+    fn errors_match(errors: &[String], pattern: &str) -> bool {
         let re = Regex::new(pattern).unwrap();
         for err in errors.iter() {
             if re.is_match(err) {

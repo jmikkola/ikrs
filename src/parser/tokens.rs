@@ -83,7 +83,7 @@ impl fmt::Display for Token {
             Colon => write!(f, ":"),
             Comma => write!(f, ","),
             Dot => write!(f, "."),
-            Newline => writeln!(f, ""),
+            Newline => writeln!(f),
             Ampersand => write!(f, "@"),
             Bang => write!(f, "!"),
             Caret => write!(f, "^"),

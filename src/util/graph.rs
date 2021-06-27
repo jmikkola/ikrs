@@ -264,7 +264,7 @@ mod test {
         let expected = vec![vec![1, 2, 5], vec![3, 4, 8], vec![6, 7]];
 
         for cycle in cycles.iter_mut() {
-            cycle.sort();
+            cycle.sort_unstable();
         }
         cycles.sort();
         assert!(cycles == expected);
@@ -297,7 +297,7 @@ mod test {
 
         let mut ordering = build_graph(description).get_topo_ordering().unwrap();
         for group in ordering.iter_mut() {
-            group.sort();
+            group.sort_unstable();
         }
 
         let expected = vec![vec![104, 106, 1009], vec![13, 105], vec![11, 12], vec![1]];
