@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result, Context};
 use super::args::Args;
 use super::parser::ast;
 use super::parser::parser::parse;
-use super::parser::tokenize::tokenize;
+use super::parser::tokenize::{tokenize, Tokens};
 use super::util::graph::Graph;
 
 // submodules
@@ -62,37 +62,9 @@ impl Package {
     fn parse_files(&mut self, tokenize_only: bool) -> Result<()> {
         assert!(self.syntaxes.is_empty());
         for file_path in self.file_paths.iter() {
-            let contents = read_path(file_path)?;
-
-            let tokens = tokenize(contents.as_str());
-	    let unknown = tokens.display_unknown();
-	    if !unknown.is_empty() {
-                eprintln!("cannot parse {}, found unknown tokens", file_path);
-
-		for selection in unknown.iter() {
-		    eprintln!("\n{}", selection.render_selection(&contents));
-		}
-
-                // TODO: Handle errors in one file and continue to the next
-		tokens.get_error()
-		    .with_context(|| format!("invalid token found in {}", file_path))?;
-            }
-
-            if tokenize_only {
-                continue;
-            }
-
-            let syntax = parse(file_path.clone(), &tokens);
-            if syntax.has_errors() {
-		eprintln!("cannot parse {}, syntax error", file_path);
-                // TODO: Handle errors in one file and continue to the next
-                for e in syntax.errors.iter() {
-                    eprintln!("{}", e);
-                }
-                return Err(anyhow!("parse error in {}", file_path));
-            }
-
-            self.syntaxes.push(syntax);
+	    // TODO: Handle errors in one file and continue to the next
+	    parse_file(&mut self.syntaxes, tokenize_only, file_path)
+		.with_context(|| format!("in file {}", file_path))?;
         }
         Ok(())
     }
@@ -150,6 +122,52 @@ impl Package {
     }
 }
 
+fn parse_file(syntaxes: &mut Vec<ast::Syntax>, tokenize_only: bool, file_path: &String) -> Result<()> {
+    let contents = read_path(file_path)?;
+    let tokens = tokenize_with_errors(file_path, contents.as_str())?;
+
+    if tokenize_only {
+	return Ok(());
+    }
+
+    let syntax = parse_with_errors(file_path, &tokens)?;
+    syntaxes.push(syntax);
+
+    Ok(())
+}
+
+// tokenize `contents` and print any errors
+fn tokenize_with_errors(file_path: &String, contents: &str) -> Result<Tokens> {
+    let tokens = tokenize(contents);
+    let unknown = tokens.display_unknown();
+    if !unknown.is_empty() {
+        eprintln!("cannot parse {}, found unknown tokens", file_path);
+
+	for selection in unknown.iter() {
+	    eprintln!("\n{}", selection.render_selection(&contents));
+	}
+
+	tokens.get_error()?;
+    }
+
+    Ok(tokens)
+}
+
+// parse `tokens` and print any errors
+fn parse_with_errors(file_path: &String, tokens: &Tokens) -> Result<ast::Syntax> {
+    let syntax = parse(file_path.clone(), &tokens);
+    if syntax.has_errors() {
+	eprintln!("cannot parse {}, syntax error", file_path);
+        // TODO: Handle errors in one file and continue to the next
+        for e in syntax.errors.iter() {
+            eprintln!("{}", e);
+        }
+        return Err(anyhow!("parse error"));
+    }
+
+    Ok(syntax)
+}
+
 #[derive(Debug)]
 struct CompileJob {
     packages: Vec<Package>,
@@ -197,14 +215,14 @@ impl CompileJob {
         Ok(())
     }
 
-    fn check_declared_names(&self) -> io::Result<()> {
+    fn check_declared_names(&self) -> Result<()> {
         for pkg in self.packages.iter() {
             pkg.check_declared_names()?;
         }
         Ok(())
     }
 
-    fn check_import_cycles(&mut self) -> io::Result<()> {
+    fn check_import_cycles(&mut self) -> Result<()> {
         let graph = self.build_import_graph();
 
         if let Some(ordering) = graph.get_topo_ordering() {
@@ -215,8 +233,7 @@ impl CompileJob {
             for cycle in cycles.iter() {
                 eprintln!("  cycle: {:?}", cycle);
             }
-            let err = io::Error::new(io::ErrorKind::Other, "error");
-            return Err(err);
+            return Err(anyhow!("found cycles in import graph"));
         }
 
         Ok(())

@@ -1,9 +1,9 @@
 use std::path::Path;
 
+use anyhow::Result;
+
 use super::*;
 use crate::args::Args;
-
-use tempdir;
 
 fn get_package<'a>(gp: &'a CompileJob, name: &str) -> Option<&'a Package> {
     for pf in gp.packages.iter() {
@@ -68,7 +68,7 @@ fn test_grouping_files() {
 
 fn setup_test_dir(
     name_and_contents: Vec<(&str, &str)>,
-) -> io::Result<(tempdir::TempDir, String, Vec<String>)> {
+) -> Result<(tempdir::TempDir, String, Vec<String>)> {
     let tmp_dir = tempdir::TempDir::new("ikrs-tests")?;
     let base_dir = path_to_string(tmp_dir.path());
 
@@ -92,7 +92,7 @@ fn path_to_string(path: &Path) -> String {
     path.to_str().unwrap().to_string()
 }
 
-fn ensure_parent_exists(path: &Path) -> io::Result<()> {
+fn ensure_parent_exists(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         ensure_parent_exists(&parent)?;
         if !parent.exists() {
