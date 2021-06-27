@@ -73,14 +73,10 @@ impl<'a> CheckState<'a> {
         use ast::Declaration::*;
 
         for declaration in self.syntax.declarations.iter() {
-            match declaration {
-                TypeDecl(tdecl, _) => {
-                    // as a side-effect, this writes the type decl to
-                    // self.types_declared
-                    self.check_duplicate_type_decl(*tdecl);
-                }
-                _ => {}
-            }
+	    if let TypeDecl(tdecl, _) = declaration {
+                // as a side-effect, this writes the type decl to self.types_declared
+                self.check_duplicate_type_decl(*tdecl);
+	    }
         }
     }
 

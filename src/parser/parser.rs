@@ -6,7 +6,7 @@ use super::tokens::Token;
 #[cfg(test)]
 mod test;
 
-pub fn parse<'a>(filename: String, tokens: &'a Tokens) -> Syntax {
+pub fn parse(filename: String, tokens: &Tokens) -> Syntax {
     let mut parser = Parser::new(filename, &tokens.tokens);
     parser.parse_file();
     parser.syntax
@@ -236,8 +236,7 @@ impl<'a> Parser<'a> {
         let struct_type = StructType { fields };
         let td = TypeDefinition::Structure(struct_type);
         let decl = Declaration::TypeDecl(defined, Box::new(td));
-        let dref = self.syntax.add_declaration(decl);
-        dref
+        self.syntax.add_declaration(decl)
     }
 
     fn parse_enum_def(&mut self, defined: TypeRef, indent: u32) -> DeclarationRef {
@@ -1305,7 +1304,7 @@ impl<'a> Parser<'a> {
         }
 
         debug_assert!(unary_exprs.len() == 1);
-        debug_assert!(operators.len() == 0);
+        debug_assert!(operators.is_empty());
         *unary_exprs.first().unwrap()
     }
 
@@ -1444,12 +1443,8 @@ impl<'a> Parser<'a> {
         }
 
         let mut arg_names = vec![];
-        loop {
-            let name = match self.peek_token() {
-                Some(Token::ValueName(n)) => n.clone(),
-                _ => break,
-            };
-            arg_names.push(name);
+        while let Some(Token::ValueName(name)) = self.peek_token() {
+            arg_names.push(name.clone());
 
             if self.is_next(Token::Comma) {
                 self.next();

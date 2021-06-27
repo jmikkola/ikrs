@@ -56,7 +56,7 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
         errors.join(", ")
     );
     assert_eq!("", errors.join(", "), "{}", input);
-    assert_eq!(true, is_done, "parser left extra input");
+    assert!(is_done, "parser left extra input");
 }
 
 fn assert_parses<F, I>(input: &str, expected: &str, require_done: bool, f: F)
@@ -80,7 +80,7 @@ where
     );
     assert_eq!("", errors.join(", "), "{}", input);
     if require_done {
-        assert_eq!(true, is_done, "parser left extra input");
+        assert!(is_done, "parser left extra input");
     }
 }
 
