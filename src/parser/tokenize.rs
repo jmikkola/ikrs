@@ -31,13 +31,12 @@ impl Tokens {
         self.saw_unknown
     }
 
-    pub fn get_error(&self) -> Option<Box<dyn Error + 'static>> {
+    pub fn get_error(&self) -> Result<(), UnknownTokensError> {
 	if self.saw_unknown {
-	    let error = UnknownTokensError{};
-	    let boxed = Box::new(error) as Box<dyn Error + 'static>;
-	    return Some(boxed)
+	    Err(UnknownTokensError{})
+	} else {
+	    Ok(())
 	}
-	None
     }
 
     // pub fn just_tokens(&self) -> Vec<Token> {
@@ -721,7 +720,7 @@ fn main():
 
     #[test]
     fn test_get_error() {
-	assert!(tokenize("fn main").get_error().is_none());
-	assert!(tokenize("???").get_error().is_some());
+	assert!(tokenize("fn main").get_error().is_ok());
+	assert!(tokenize("???").get_error().is_err());
     }
 }

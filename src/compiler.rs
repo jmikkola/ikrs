@@ -3,6 +3,8 @@ use std::io;
 use std::io::prelude::*;
 use std::path;
 
+use anyhow::{anyhow, Result};
+
 use super::args::Args;
 use super::parser::ast;
 use super::parser::parser::parse;
@@ -14,7 +16,7 @@ pub mod first_pass;
 #[cfg(test)]
 mod test;
 
-pub fn compile(paths: Vec<String>, base_path: &String, args: &Args) -> io::Result<()> {
+pub fn compile(paths: Vec<String>, base_path: &String, args: &Args) -> Result<()> {
     if args.tokenize_only {
         println!("only tokenizing");
     } else if args.parse_only {
@@ -57,7 +59,7 @@ impl Package {
         self.file_paths.push(filename);
     }
 
-    fn parse_files(&mut self, tokenize_only: bool) -> io::Result<()> {
+    fn parse_files(&mut self, tokenize_only: bool) -> anyhow::Result<()> {
         assert!(self.syntaxes.is_empty());
         for file_path in self.file_paths.iter() {
             let contents = read_path(file_path)?;
@@ -65,15 +67,14 @@ impl Package {
             let tokens = tokenize(contents.as_str());
 	    let unknown = tokens.display_unknown();
 	    if !unknown.is_empty() {
-                // TODO: Handle errors in one file and continue to the next
                 eprintln!("cannot parse {}, found unknown tokens", file_path);
 
 		for selection in unknown.iter() {
 		    eprintln!("\n{}", selection.render_selection(&contents));
 		}
 
-                let err = io::Error::new(io::ErrorKind::Other, "error");
-                return Err(err);
+                // TODO: Handle errors in one file and continue to the next
+		tokens.get_error()?;
             }
 
             if tokenize_only {
@@ -87,7 +88,7 @@ impl Package {
                     eprintln!("{}", e);
                 }
                 let err = io::Error::new(io::ErrorKind::Other, "error");
-                return Err(err);
+                return Err(anyhow!("error"));
             }
 
             self.syntaxes.push(syntax);
@@ -188,7 +189,7 @@ impl CompileJob {
         self.packages.push(pkg);
     }
 
-    fn parse_files(&mut self, tokenize_only: bool) -> io::Result<()> {
+    fn parse_files(&mut self, tokenize_only: bool) -> Result<()> {
         for pkg in self.packages.iter_mut() {
             pkg.parse_files(tokenize_only)?;
         }
