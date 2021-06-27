@@ -21,7 +21,7 @@ struct Parser<'a> {
 impl<'a> Parser<'a> {
     fn new(filename: String, tokens: &'a Vec<(Token, Location)>) -> Self {
         Parser {
-            tokens: tokens,
+            tokens,
             index: 0,
             syntax: Syntax::new(filename),
         }
@@ -188,10 +188,10 @@ impl<'a> Parser<'a> {
         }
 
         let inst_decl = InstanceDecl {
-            on_type: on_type,
-            class: class,
-            constraints: constraints,
-            methods: methods,
+            on_type,
+            class,
+            constraints,
+            methods,
         };
         let d = Declaration::InstanceDecl(Box::new(inst_decl));
         self.syntax.add_declaration(d)
@@ -233,7 +233,7 @@ impl<'a> Parser<'a> {
         };
 
         // Assemble the result
-        let struct_type = StructType { fields: fields };
+        let struct_type = StructType { fields };
         let td = TypeDefinition::Structure(struct_type);
         let decl = Declaration::TypeDecl(defined, Box::new(td));
         let dref = self.syntax.add_declaration(decl);
@@ -306,17 +306,17 @@ impl<'a> Parser<'a> {
                     return self.declaration_error("Expected a newline or colon after enum variant")
                 }
             };
-            let content = StructType { fields: fields };
+            let content = StructType { fields };
 
             let variant = EnumVariant {
                 name: v_name,
-                content: content,
+                content,
             };
             variants.push(variant);
         }
 
         // Assemble the result
-        let enum_type = EnumType { variants: variants };
+        let enum_type = EnumType { variants };
         let td = TypeDefinition::Enum(enum_type);
         let decl = Declaration::TypeDecl(defined, Box::new(td));
         self.syntax.add_declaration(decl)
@@ -396,7 +396,7 @@ impl<'a> Parser<'a> {
 
         let class_type = ClassType {
             super_classes: supers,
-            methods: methods,
+            methods,
         };
         let td = TypeDefinition::Class(class_type);
         let decl = Declaration::TypeDecl(defined, Box::new(td));
@@ -415,10 +415,7 @@ impl<'a> Parser<'a> {
 
         let ftype = self.parse_fn_type();
 
-        let method = ClassMethod {
-            name: name,
-            ftype: ftype,
-        };
+        let method = ClassMethod { name, ftype };
         Ok(method)
     }
 
@@ -572,9 +569,9 @@ impl<'a> Parser<'a> {
         };
 
         let fd = FunctionDecl {
-            name: name,
-            arg_names: arg_names,
-            fn_type: fn_type,
+            name,
+            arg_names,
+            fn_type,
             body: block,
         };
         let d = Declaration::FunctionDecl(Box::new(fd));
@@ -608,7 +605,7 @@ impl<'a> Parser<'a> {
         let func_type = FuncType {
             arg_types: provided_args,
             ret_type: ret,
-            constraints: constraints,
+            constraints,
         };
         let t = Type::FnType(Box::new(func_type));
         let tref = self.syntax.add_type(t);
@@ -754,7 +751,7 @@ impl<'a> Parser<'a> {
         let func_type = FuncType {
             arg_types: args,
             ret_type: ret,
-            constraints: constraints,
+            constraints,
         };
         self.syntax.add_type(Type::FnType(Box::new(func_type)))
     }
@@ -784,10 +781,7 @@ impl<'a> Parser<'a> {
             _ => return Err("Expected a class name after the constrained type"),
         };
 
-        Ok(Constraint {
-            constrained: constrained,
-            class: class,
-        })
+        Ok(Constraint { constrained, class })
     }
 
     // Is a type about to start?
@@ -889,10 +883,7 @@ impl<'a> Parser<'a> {
             Err(sref) => return sref,
         };
 
-        let match_statement = MatchStatement {
-            matched: matched,
-            matchers: matchers,
-        };
+        let match_statement = MatchStatement { matched, matchers };
         let stmt = Statement::MatchStmt(Box::new(match_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1090,11 +1081,7 @@ impl<'a> Parser<'a> {
         }
         let iterable = self.parse_expression(indent);
         let body = self.parse_block(indent);
-        let for_statement = ForStatement {
-            variable: variable,
-            iterable: iterable,
-            body: body,
-        };
+        let for_statement = ForStatement { variable, iterable, body };
         let stmt = Statement::ForStmt(Box::new(for_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1102,10 +1089,7 @@ impl<'a> Parser<'a> {
     fn parse_while(&mut self, indent: u32) -> StatementRef {
         let test = self.parse_expression(indent);
         let body = self.parse_block(indent);
-        let while_statement = WhileStatement {
-            test: test,
-            body: body,
-        };
+        let while_statement = WhileStatement { test, body };
         let stmt = Statement::WhileStmt(Box::new(while_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1114,30 +1098,27 @@ impl<'a> Parser<'a> {
         let test = self.parse_expression(indent);
         let tbody = self.parse_block(indent);
 
-        let ebody = if let Some((Token::KeywordElse, location)) = self.peek() {
-            if location.col < indent {
-                // The 'else' belongs to an outer 'if'
-                None
-            } else if location.col > indent {
-                return self.statement_error("'else' not at expected indentation");
-            } else {
-                self.next(); // eat the 'else'
-                if self.is_next(Token::KeywordIf) {
-                    self.next();
-                    Some(self.parse_if(indent))
+        let ebody = match self.peek() {
+            Some((Token::KeywordElse, location)) => {
+                if location.col < indent {
+                    // The 'else' belongs to an outer 'if'
+                    None
+                } else if location.col > indent {
+                    return self.statement_error("'else' not at expected indentation");
                 } else {
-                    Some(self.parse_block(indent))
+                    self.next(); // eat the 'else'
+                    if self.is_next(Token::KeywordIf) {
+                        self.next();
+                        Some(self.parse_if(indent))
+                    } else {
+                        Some(self.parse_block(indent))
+                    }
                 }
             }
-        } else {
-            None
+            _ => None,
         };
 
-        let if_statement = IfStatement {
-            test: test,
-            tbody: tbody,
-            ebody: ebody,
-        };
+        let if_statement = IfStatement { test, tbody, ebody };
         let stmt = Statement::IfStmt(Box::new(if_statement));
         self.syntax.add_statement(stmt)
     }
@@ -1491,10 +1472,7 @@ impl<'a> Parser<'a> {
             self.next();
         }
 
-        let lambda = Lambda {
-            arg_names: arg_names,
-            body: body,
-        };
+        let lambda = Lambda { arg_names, body };
         let expr = Expression::Lambda(Box::new(lambda));
         self.syntax.add_expression(expr)
     }
@@ -1548,10 +1526,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let struct_expr = StructExpression {
-            struct_name: name,
-            fields: fields,
-        };
+        let struct_expr = StructExpression { struct_name: name, fields };
         let expr = Expression::StructCreate(Box::new(struct_expr));
         self.syntax.add_expression(expr)
     }
