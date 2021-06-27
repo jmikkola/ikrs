@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use super::ast::*;
 use super::location::Location;
 use super::tokenize::Tokens;
@@ -1572,6 +1574,7 @@ impl<'a> Parser<'a> {
     }
 
     fn add_error(&mut self, message: &str) {
+	// TODO: use a proper location::Region for this
         self.syntax.add_error(self.show_error(self.index, message));
     }
 
@@ -1627,5 +1630,20 @@ impl<'a> Parser<'a> {
             location,
             self.preview(index)
         )
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseError {}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	write!(f, "ParseError")
+    }
+}
+
+impl Error for ParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
     }
 }
