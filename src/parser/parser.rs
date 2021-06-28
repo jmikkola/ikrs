@@ -1,3 +1,6 @@
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::match_like_matches_macro)]
+
 use std::error::Error;
 
 use super::ast::*;

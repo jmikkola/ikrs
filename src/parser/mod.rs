@@ -1,4 +1,6 @@
 // parser module
+#![allow(clippy::module_inception)]
+
 pub mod ast;
 pub mod location;
 pub mod parser;

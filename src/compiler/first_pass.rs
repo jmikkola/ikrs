@@ -1,3 +1,6 @@
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::match_like_matches_macro)]
+
 use std::collections::HashSet;
 
 use anyhow::{anyhow, Result};

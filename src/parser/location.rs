@@ -1,3 +1,5 @@
+#![allow(clippy::comparison_chain)]
+
 use std::cmp::{Ord, Ordering, PartialOrd, min};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,8 +87,8 @@ impl Region {
 	Region::new(start, end)
     }
 
-    pub fn to_display_selection(&self, context: u32) -> DisplaySelection {
-	DisplaySelection::new(self.clone(), context)
+    pub fn to_display_selection(self, context: u32) -> DisplaySelection {
+	DisplaySelection::new(self, context)
     }
 }
 
