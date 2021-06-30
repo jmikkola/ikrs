@@ -115,6 +115,11 @@ impl Package {
     }
 
     fn first_pass(&self) -> Result<()> {
+	// TODO: Also check whole-module properties, e.g. that two files don't declare the same
+	// name, or that one file imports a name that the other declares.
+	// First pass should also resolve imported names to their final (fully-qualified?) name, and
+	// return the updated structures. The type inference pass should be able to pick out the
+	// already-resolved types for the imported names.
         for syntax in self.syntaxes.iter() {
             first_pass::check(syntax)?;
         }
