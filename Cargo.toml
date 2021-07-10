@@ -10,6 +10,7 @@ edition = "2018"
 argparse = "0.2.2"
 walkdir = "2"
 anyhow = "1.0"
+itertools = "0.10.1"
 
 [dev-dependencies]
 regex = "1"

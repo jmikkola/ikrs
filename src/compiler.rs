@@ -137,7 +137,7 @@ fn parse_file(syntaxes: &mut Vec<ast::Syntax>, tokenize_only: bool, file_path: &
 	return Ok(());
     }
 
-    let syntax = parse_with_errors(file_path, &tokens)?;
+    let syntax = parse_with_errors(file_path, contents.as_str(), &tokens)?;
     syntaxes.push(syntax);
 
     Ok(())
@@ -148,7 +148,7 @@ fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
     let tokens = tokenize(contents);
     let unknown = tokens.display_unknown();
     if !unknown.is_empty() {
-        eprintln!("cannot parse {}, found unknown tokens", file_path);
+        eprintln!("Error parsing {}, found unknown tokens", file_path);
 
 	for selection in unknown.iter() {
 	    eprintln!("\n{}", selection.render_selection(&contents));
@@ -161,13 +161,14 @@ fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
 }
 
 // parse `tokens` and print any errors
-fn parse_with_errors(file_path: &str, tokens: &Tokens) -> Result<ast::Syntax> {
+fn parse_with_errors(file_path: &str, file: &str, tokens: &Tokens) -> Result<ast::Syntax> {
     let syntax = parse(file_path, &tokens);
     if syntax.has_errors() {
-	eprintln!("cannot parse {}, syntax error", file_path);
-        for e in syntax.errors.iter() {
-            eprintln!("{}", e);
-        }
+	eprintln!("Error parsing {}, syntax error", file_path);
+	eprintln!("{}", syntax.render_errors(file));
+        // for e in syntax.errors.iter() {
+        //     eprintln!(".... {}", e);
+        // }
 	bail!("parse error");
     }
 

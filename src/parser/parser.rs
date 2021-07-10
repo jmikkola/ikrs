@@ -1,10 +1,8 @@
 #![allow(clippy::comparison_chain)]
 #![allow(clippy::match_like_matches_macro)]
 
-use std::error::Error;
-
 use super::ast::*;
-use super::location::Location;
+use super::location::{Location, Region};
 use super::tokenize::Tokens;
 use super::tokens::Token;
 
@@ -1578,7 +1576,7 @@ impl<'a> Parser<'a> {
 
     fn add_error(&mut self, message: &str) {
 	// TODO: use a proper location::Region for this
-        self.syntax.add_error(self.show_error(self.index, message));
+        self.syntax.add_error(self.make_error(self.index, message));
     }
 
     fn type_error(&mut self, message: &str) -> TypeRef {
@@ -1607,46 +1605,22 @@ impl<'a> Parser<'a> {
         self.syntax.add_expression(Expression::ExpressionParseError)
     }
 
-    fn preview(&self, index: usize) -> String {
-        // Back up one token, because often the relevant token has already been
-        // read
-        let start = if index > 0 { index - 1 } else { index };
-        self.tokens
-            .iter()
-            .skip(start)
-            .take(5)
-            .map(|(tok, _)| format!("{}", tok))
-            .collect::<Vec<String>>()
-            .join(" ")
-    }
+    fn make_error(&self, mut index: usize, message: &str) -> ParseError {
+        index = index.min(self.tokens.len());
+	// assume that the caller has already consumed the token "causing" the error
+	if index > 0 {
+	    index -= 1;
+	}
 
-    fn show_error(&self, mut index: usize, message: &str) -> String {
-        index = index.min(self.tokens.len() - 1);
-        let location = if self.tokens.is_empty() {
-            "start".to_string()
-        } else {
-            self.tokens[index].1.to_string()
-        };
-        format!(
-            "error: {} at around {}. Tokens: {}",
-            message,
-            location,
-            self.preview(index)
-        )
-    }
-}
+	let (token, location) = &self.tokens[index];
+	let size = token.first_line_length();
 
-#[derive(Debug)]
-pub struct ParseError {}
+	let region = Region::for_word(*location, size);
+	let context = 0; // no additional lines
 
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "ParseError")
-    }
-}
-
-impl Error for ParseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
+	ParseError{
+	    message: message.to_string(),
+	    location: region.to_display_selection(context),
+	}
     }
 }

@@ -40,7 +40,7 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
 
     let is_done = parser.is_done();
     let s = &parser.syntax;
-    let errors = &s.errors;
+    let errors = s.render_errors(trimmed);
 
     let inspected: Vec<String> = s
         .declarations
@@ -53,9 +53,26 @@ fn assert_parses_file(input: &str, expected_decls: Vec<&str>) {
         inspected,
         "input: {}, errors: {}",
         input,
-        errors.join(", ")
+        errors
     );
-    assert_eq!("", errors.join(", "), "{}", input);
+    assert_eq!("", errors, "{}", input);
+    assert!(is_done, "parser left extra input");
+}
+
+fn assert_parse_error(input: &str, expected_error: &str) {
+    let to_trim: &[_] = &[' ', '\n'];
+    let trimmed = input.trim_start_matches(to_trim);
+
+    let tokens = tokenize(trimmed);
+    let mut parser = Parser::new("test", &tokens.tokens);
+
+    parser.parse_file();
+
+    let is_done = parser.is_done();
+    let s = &parser.syntax;
+    let errors = s.render_errors(trimmed);
+
+    assert_eq!(expected_error, errors);
     assert!(is_done, "parser left extra input");
 }
 
@@ -69,16 +86,16 @@ where
     let inspectable = f(&mut parser);
     let is_done = parser.is_done();
     let s = parser.syntax;
-    let errors = &s.errors;
+    let errors = s.render_errors(input);
     let inspected = inspect(inspectable, &s).unwrap();
     assert_eq!(
         expected,
         inspected.as_str(),
         "input: {}, errors: {}",
         input,
-        errors.join(", "),
+        errors
     );
-    assert_eq!("", errors.join(", "), "{}", input);
+    assert_eq!("", errors, "{}", input);
     if require_done {
         assert!(is_done, "parser left extra input");
     }
@@ -714,4 +731,22 @@ fn main():
     ];
 
     assert_parses_file(file, expected);
+}
+
+#[test]
+fn test_correct_line_for_smart_error() {
+    let file = r#"
+fn main():
+  let a = 1
+  let b = )   // parse error
+  let c = 3
+  let d = 4
+"#;
+
+    let expected = r#"Unexpected token for a value at line 3, column 10:
+  let b = )   // parse error
+          ^
+"#;
+
+    assert_parse_error(file, expected);
 }

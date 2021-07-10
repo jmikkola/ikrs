@@ -2,4 +2,4 @@
 package main
 
 fn say_hello():
-  println("Hello, world") )
+  println("Hello, world") ) // extra closing paren

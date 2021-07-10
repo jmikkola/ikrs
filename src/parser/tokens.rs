@@ -75,6 +75,18 @@ pub enum Comment {
     BlockComment(String),
 }
 
+impl Token {
+    pub fn first_line_length(&self) -> usize {
+	// lazy way: render it as a string then go count characters
+	let rendered = format!("{}", self);
+	if let Some(size) = rendered.find("\n") {
+	    size
+	} else {
+	    rendered.len()
+	}
+    }
+}
+
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Token::*;

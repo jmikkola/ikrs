@@ -10,14 +10,15 @@ pub struct Location {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Region {
-    start: Location,
-    end: Location,
+    pub start: Location,
+    pub end: Location,
 }
 
 // Used to describe a part of a file that should be shown
+#[derive(Debug)]
 pub struct DisplaySelection {
     // Region of text to highlight
-    highlight: Region,
+    pub highlight: Region,
     // How many lines before and after to also render
     context: u32,
 }
@@ -58,9 +59,9 @@ impl Location {
     }
 }
 
-impl ToString for Location {
-    fn to_string(&self) -> String {
-        format!("line {}, column {}", self.line + 1, self.col + 1)
+impl std::fmt::Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	write!(f, "line {}, column {}", self.line + 1, self.col)
     }
 }
 
@@ -92,9 +93,9 @@ impl Region {
     }
 }
 
-impl ToString for Region {
-    fn to_string(&self) -> String {
-	format!("from {} to {}", self.start.to_string(), self.end.to_string())
+impl std::fmt::Display for Region {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	write!(f, "from {} to {}", self.start, self.end)
     }
 }
 
@@ -139,6 +140,12 @@ impl DisplaySelection {
 	}
 
 	result
+    }
+}
+
+impl std::fmt::Display for DisplaySelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	write!(f, "{}", self.highlight.to_string())
     }
 }
 

@@ -1,5 +1,11 @@
+use std::error::Error;
+
 #[cfg(test)]
 use std::fmt;
+
+use itertools::Itertools;
+
+use super::location::DisplaySelection;
 
 // Index types
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -58,6 +64,35 @@ impl Inspect for TypeRef {
     }
 }
 
+#[derive(Debug)]
+pub struct ParseError {
+    pub message: String,
+    pub location: DisplaySelection,
+}
+
+impl ParseError {
+    pub fn render(&self, file: &str) -> String {
+	format!(
+	    "{} at {}:\n{}",
+	    self.message,
+	    self.location.highlight.start,
+	    self.location.render_selection(file))
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    // This isn't the main way to render one of these errors.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	write!(f, "Parse error: {} at {}", self.message, self.location)
+    }
+}
+
+impl Error for ParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
 // Syntax contains the results of parsing one file
 #[derive(Debug)]
 pub struct Syntax {
@@ -68,7 +103,7 @@ pub struct Syntax {
     pub expressions: Vec<Expression>,
     pub types: Vec<Type>,
 
-    pub errors: Vec<String>,
+    pub errors: Vec<ParseError>,
 }
 
 impl Syntax {
@@ -102,12 +137,18 @@ impl Syntax {
         &self.types[r]
     }
 
-    pub fn add_error(&mut self, message: String) {
-        self.errors.push(message);
+    pub fn add_error(&mut self, error: ParseError) {
+        self.errors.push(error);
     }
 
     pub fn has_errors(&self) -> bool {
         !self.errors.is_empty()
+    }
+
+    pub fn render_errors(&self, file: &str) -> String {
+	self.errors.iter()
+	    .map(|err| err.render(file))
+	    .join("\n")
     }
 
     pub fn add_expression(&mut self, expr: Expression) -> ExpressionRef {
