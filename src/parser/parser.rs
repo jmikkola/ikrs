@@ -1558,6 +1558,7 @@ impl<'a> Parser<'a> {
         self.peek().map(|(t, _)| t)
     }
 
+    /// Returns true if `expected` is the next token (without consuming it)
     #[inline]
     fn is_next(&self, expected: Token) -> bool {
         match self.peek() {
