@@ -559,6 +559,14 @@ mod test {
             .collect()
     }
 
+    fn get_token_locations(input: &str) -> Vec<Location> {
+	tokens(input)
+	    .iter()
+	    .map(|(_, loc)| loc)
+	    .cloned()
+	    .collect()
+    }
+
     fn get_comments(input: &str) -> Vec<Comment> {
         comments(input)
             .iter()
@@ -575,14 +583,40 @@ mod test {
         assert_eq!(expected, get_tokens(input));
     }
 
+    fn assert_locations(expected: Vec<Location>, input: &str) {
+	assert_eq!(expected, get_token_locations(input), "for input {:?}", input);
+    }
+
     fn assert_comments(expected: Vec<Comment>, input: &str) {
         assert_eq!(expected, get_comments(input));
+    }
+
+    fn loc(col: u32, line: u32) -> Location {
+	Location{col, line}
     }
 
     #[test]
     fn test_tokenize_empty() {
         let empty: Vec<(Token, Location)> = vec![];
         assert_eq!(empty, tokens(""));
+    }
+
+    #[test]
+    fn test_locations() {
+	assert_locations(vec![], "");
+	assert_locations(vec![loc(0, 0)], "xyz");
+	assert_locations(vec![loc(1, 0)], " xyz");
+	assert_locations(vec![loc(0, 0), loc(0, 1)], "\nxyz");
+	assert_locations(vec![loc(4, 0), loc(0, 1)], "    \nxyz");
+	assert_locations(vec![loc(0, 0), loc(1, 1)], "\n xyz");
+	assert_locations(
+	    vec![
+		loc(0, 0), loc(0, 1), // newlines
+		loc(2, 2), loc(6, 2), loc(8, 2), // let c =
+		loc(10, 2), loc(13, 2), loc(14, 2), // foo()
+	    ],
+	    "\n\n  let c = foo()"
+	);
     }
 
     #[test]
