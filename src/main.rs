@@ -22,9 +22,9 @@ fn main() {
     }
 }
 
+/// Given a single file or a directory, this will return a list of all the files in the project and
+/// the base directory of the project.
 fn expand_paths(root: &str) -> (Vec<String>, String) {
-    // TODO: Try to ensure that the caller doesn't pass more than one directory,
-    // and only passes .ik files if no directory is passed.
     let mut file_paths = Vec::new();
 
     let path = Path::new(root);
