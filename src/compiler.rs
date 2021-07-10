@@ -3,7 +3,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path;
 
-use anyhow::{anyhow, Result, Context};
+use anyhow::{anyhow, bail, Result};
 
 use super::args::Args;
 use super::parser::ast;
@@ -61,15 +61,19 @@ impl Package {
 
     fn parse_files(&mut self, tokenize_only: bool) -> Result<()> {
         assert!(self.syntaxes.is_empty());
+	let mut has_error = false;
         for file_path in self.file_paths.iter() {
-	    // TODO: Handle errors in one file and continue to the next
-	    parse_file(&mut self.syntaxes, tokenize_only, file_path)
-		.with_context(|| format!("in file {}", file_path))?;
+	    let result = parse_file(&mut self.syntaxes, tokenize_only, file_path);
+	    has_error = has_error || result.is_err();
         }
+
+	if has_error {
+	    bail!("parse error");
+	}
         Ok(())
     }
 
-    fn check_declared_names(&self) -> io::Result<()> {
+    fn check_declared_names(&self) -> Result<()> {
         let allowed_to_skip_package_decl = self.package_name == "main";
 
         let expected_name = self.package_name.split('.').last().unwrap();
@@ -88,16 +92,14 @@ impl Package {
                         "file {} should declare package {} but declares package {} instead",
                         syntax.filename, expected_name, name
                     );
-                    let err = io::Error::new(io::ErrorKind::Other, "error");
-                    return Err(err);
+		    bail!("wrong package error");
                 }
             } else if !allowed_to_skip_package_decl {
                 eprintln!(
                     "file {} should declare package {} but doesn't",
                     syntax.filename, expected_name
                 );
-                let err = io::Error::new(io::ErrorKind::Other, "error");
-                return Err(err);
+		bail!("no package error");
             }
         }
         Ok(())
@@ -163,11 +165,10 @@ fn parse_with_errors(file_path: &str, tokens: &Tokens) -> Result<ast::Syntax> {
     let syntax = parse(file_path, &tokens);
     if syntax.has_errors() {
 	eprintln!("cannot parse {}, syntax error", file_path);
-        // TODO: Handle errors in one file and continue to the next
         for e in syntax.errors.iter() {
             eprintln!("{}", e);
         }
-        return Err(anyhow!("parse error"));
+	bail!("parse error");
     }
 
     Ok(syntax)
