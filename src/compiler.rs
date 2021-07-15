@@ -82,20 +82,27 @@ impl GroupedFiles {
     // Tokenize files without parsing them.
     // This is only used when the right CLI argument is passed.
     fn tokenize_files(self) -> Result<()> {
-	self.packages.iter()
-	    .map(|p| p.tokenize())
-	    .collect()
+	let is_err: bool = self.packages.iter()
+	    .map(|p| p.tokenize().is_err())
+	    .any(|err| err);
+	if is_err {
+	    bail!("tokenizer error");
+	}
+	Ok(())
     }
 
     // Take the next step in compiling: parse the files.
     fn parse_files(self) -> Result<Parsed> {
-	let packages: Result<Vec<ParsedPackage>> = self.packages.into_iter()
+	let package_results: Vec<Result<ParsedPackage>> = self.packages.into_iter()
 	    .map(|p| p.parse())
 	    .collect();
-	Ok(Parsed{packages: packages?})
+	// Split out error handling so that it doesn't short-circuit parsing
+	// at the first file with an error
+	let packages = package_results.into_iter()
+	    .collect::<Result<Vec<ParsedPackage>>>()?;
+	Ok(Parsed{packages})
     }
 }
-
 
 fn get_package_path(path: &str, base_path: &str) -> String {
     let mut parts: Vec<String> = path::Path::new(path)
