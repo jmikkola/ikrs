@@ -97,7 +97,7 @@ impl GroupedFiles {
 	    .map(|p| p.parse())
 	    .collect();
 	// Split out error handling so that it doesn't short-circuit parsing
-	// at the first file with an error
+	// at the first package with an error
 	let packages = package_results.into_iter()
 	    .collect::<Result<Vec<ParsedPackage>>>()?;
 	Ok(Parsed{packages})
@@ -146,25 +146,33 @@ impl PackageFiles {
 
     // Tokenize files without parsing them
     fn tokenize(&self) -> Result<()> {
-	self.file_paths.iter()
+	let has_err = self.file_paths.iter()
 	    .map(|file_path| {
 		let contents = read_path(file_path)?;
 		tokenize_with_errors(file_path, contents.as_str())?;
 		Ok(())
 	    })
-	    .collect()
+	    .any(|result: Result<()>| result.is_err());
+	if has_err {
+	    bail!("tokenize error");
+	}
+	Ok(())
     }
 
     fn parse(self) -> Result<ParsedPackage> {
-	let parsed_files: Result<Vec<ParsedFile>> = self.file_paths.into_iter()
+	let parsed_files: Vec<Result<ParsedFile>> = self.file_paths.into_iter()
 	    .map(|name| {
 		let syntax = parse_file_path(name.as_str())?;
 		Ok(ParsedFile{syntax})
 	    })
 	    .collect();
+	// Split out error handling so that it doesn't short-circuit parsing
+	// at the first file with an error
+	let files = parsed_files.into_iter()
+	    .collect::<Result<Vec<ParsedFile>>>()?;
 	Ok(ParsedPackage{
 	    package_name: self.package_name,
-	    files: parsed_files?,
+	    files,
 	})
     }
 }
