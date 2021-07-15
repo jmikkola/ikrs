@@ -5,7 +5,7 @@ use anyhow::Result;
 use super::*;
 use crate::args::Args;
 
-fn get_package<'a>(gp: &'a CompileJob, name: &str) -> Option<&'a Package> {
+fn get_package<'a>(gp: &'a GroupedFiles, name: &str) -> Option<&'a PackageFiles> {
     for pf in gp.packages.iter() {
         if pf.package_name == name {
             return Some(pf);
@@ -46,7 +46,7 @@ fn test_grouping_files() {
     .map(|s| s.to_string())
     .collect();
 
-    let result = CompileJob::gather_files(&paths, &"".to_owned());
+    let result = GroupedFiles::new(&paths, &"".to_owned());
 
     assert!(result.packages.len() == 3);
 

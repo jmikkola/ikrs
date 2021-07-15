@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path;
+use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, Result};
 
@@ -23,176 +24,39 @@ pub fn compile(paths: Vec<String>, base_path: &str, args: &Args) -> Result<()> {
         println!("only parsing");
     }
 
-    let mut packages = CompileJob::gather_files(&paths, base_path);
-    packages.parse_files(args.tokenize_only)?;
+    let project_files = GroupedFiles::new(&paths, base_path);
+    if args.tokenize_only {
+	return project_files.tokenize_files();
+    }
 
-    if args.tokenize_only || args.parse_only {
+    let parsed_packages = project_files.parse_files()?;
+    if args.parse_only {
         return Ok(());
     }
 
-    packages.check_declared_names()?;
-    packages.check_import_cycles()?;
-    packages.check_modules_in_order()?;
+    let ordered_packages = parsed_packages.check_import_order()?;
+    let _checked_packages = ordered_packages.check_modules()?;
+    // Now something like let typed_packages = checked_packages.infer_types()?;
     // lower
     // codegen
 
     Ok(())
 }
 
-#[derive(Debug)]
-struct Package {
+/// This holds the file names in the project, grouped by which package they belong to.
+/// This also provider an API to start parsing those files.
+struct GroupedFiles {
+    packages: Vec<PackageFiles>,
+}
+/// This holds one package and lists the files it contains
+struct PackageFiles {
     package_name: String,
     file_paths: Vec<String>,
-    syntaxes: Vec<ast::Syntax>,
 }
 
-impl Package {
-    fn new(package_name: String) -> Self {
-        Package {
-            package_name,
-            file_paths: Vec::new(),
-            syntaxes: Vec::new(),
-        }
-    }
-
-    fn add_file_path(&mut self, filename: String) {
-        self.file_paths.push(filename);
-    }
-
-    fn parse_files(&mut self, tokenize_only: bool) -> Result<()> {
-        assert!(self.syntaxes.is_empty());
-	let mut has_error = false;
-        for file_path in self.file_paths.iter() {
-	    let result = parse_file(&mut self.syntaxes, tokenize_only, file_path);
-	    has_error = has_error || result.is_err();
-        }
-
-	if has_error {
-	    bail!("parse error");
-	}
-        Ok(())
-    }
-
-    fn check_declared_names(&self) -> Result<()> {
-        let allowed_to_skip_package_decl = self.package_name == "main";
-
-        let expected_name = self.package_name.split('.').last().unwrap();
-
-        for syntax in self.syntaxes.iter() {
-            let first_decl = if let Some(decl) = syntax.declarations.get(0) {
-                decl
-            } else {
-                // ignore empty files
-                continue;
-            };
-
-            if let ast::Declaration::PackageDecl(name) = first_decl {
-                if *name != expected_name {
-                    eprintln!(
-                        "file {} should declare package {} but declares package {} instead",
-                        syntax.filename, expected_name, name
-                    );
-		    bail!("wrong package error");
-                }
-            } else if !allowed_to_skip_package_decl {
-                eprintln!(
-                    "file {} should declare package {} but doesn't",
-                    syntax.filename, expected_name
-                );
-		bail!("no package error");
-            }
-        }
-        Ok(())
-    }
-
-    fn add_import_edges(&self, graph: &mut Graph<String>) {
-        for syntax in self.syntaxes.iter() {
-            for decl in syntax.declarations.iter() {
-                if let ast::Declaration::ImportDecl(names) = decl {
-                    let name = names.join(".");
-                    graph.add_edge(self.package_name.clone(), name);
-                }
-            }
-        }
-    }
-
-    fn first_pass(&self) -> Result<()> {
-	// TODO: Also check whole-module properties, e.g. that two files don't declare the same
-	// name, or that one file imports a name that the other declares.
-	// First pass should also resolve imported names to their final (fully-qualified?) name, and
-	// return the updated structures. The type inference pass should be able to pick out the
-	// already-resolved types for the imported names.
-        for syntax in self.syntaxes.iter() {
-            first_pass::check(syntax)?;
-        }
-        Ok(())
-    }
-}
-
-fn parse_file(syntaxes: &mut Vec<ast::Syntax>, tokenize_only: bool, file_path: &str) -> Result<()> {
-    let contents = read_path(file_path)?;
-    let tokens = tokenize_with_errors(file_path, contents.as_str())?;
-
-    if tokenize_only {
-	return Ok(());
-    }
-
-    let syntax = parse_with_errors(file_path, contents.as_str(), &tokens)?;
-    syntaxes.push(syntax);
-
-    Ok(())
-}
-
-// tokenize `contents` and print any errors
-fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
-    let tokens = tokenize(contents);
-    let unknown = tokens.display_unknown();
-    if !unknown.is_empty() {
-        eprintln!("Error parsing {}, found unknown tokens", file_path);
-
-	for selection in unknown.iter() {
-	    eprintln!("\n{}", selection.render_selection(&contents));
-	}
-
-	tokens.get_error()?;
-    }
-
-    Ok(tokens)
-}
-
-// parse `tokens` and print any errors
-fn parse_with_errors(file_path: &str, file: &str, tokens: &Tokens) -> Result<ast::Syntax> {
-    let syntax = parse(file_path, &tokens);
-    if syntax.has_errors() {
-	eprintln!("Error parsing {}, syntax error", file_path);
-	eprintln!("{}", syntax.render_errors(file));
-        // for e in syntax.errors.iter() {
-        //     eprintln!(".... {}", e);
-        // }
-	bail!("parse error");
-    }
-
-    Ok(syntax)
-}
-
-#[derive(Debug)]
-struct CompileJob {
-    packages: Vec<Package>,
-    // This contains a topological sort of packages based on imports, so that the compiler can wait
-    // to typecheck a module until all the models it depends on have been typechecked.
-    package_ordering: Vec<Vec<String>>,
-}
-
-impl CompileJob {
-    fn new() -> Self {
-        CompileJob {
-            packages: vec![],
-            package_ordering: vec![],
-        }
-    }
-
-    fn gather_files(paths: &[String], base_path: &str) -> Self {
-        let mut grouped = Self::new();
+impl GroupedFiles {
+    fn new(paths: &[String], base_path: &str) -> Self {
+	let mut grouped = GroupedFiles{packages: vec![]};
 
         for filename in paths.iter() {
             let package_path = get_package_path(filename, base_path);
@@ -210,73 +74,28 @@ impl CompileJob {
             }
         }
 
-        let mut pkg = Package::new(package_path);
+        let mut pkg = PackageFiles::new(package_path);
         pkg.add_file_path(filename.to_string());
         self.packages.push(pkg);
     }
 
-    fn parse_files(&mut self, tokenize_only: bool) -> Result<()> {
-        for pkg in self.packages.iter_mut() {
-            pkg.parse_files(tokenize_only)?;
-        }
-        Ok(())
+    // Tokenize files without parsing them.
+    // This is only used when the right CLI argument is passed.
+    fn tokenize_files(self) -> Result<()> {
+	self.packages.iter()
+	    .map(|p| p.tokenize())
+	    .collect()
     }
 
-    fn check_declared_names(&self) -> Result<()> {
-        for pkg in self.packages.iter() {
-            pkg.check_declared_names()?;
-        }
-        Ok(())
-    }
-
-    fn check_import_cycles(&mut self) -> Result<()> {
-        let graph = self.build_import_graph();
-
-        if let Some(ordering) = graph.get_topo_ordering() {
-            self.package_ordering = ordering;
-        } else {
-            let cycles = graph.find_cycles();
-            eprintln!("found cycles in the import graph");
-            for cycle in cycles.iter() {
-                eprintln!("  cycle: {:?}", cycle);
-            }
-            return Err(anyhow!("found cycles in import graph"));
-        }
-
-        Ok(())
-    }
-
-    fn build_import_graph(&self) -> Graph<String> {
-        let mut graph = Graph::new();
-        for pkg in self.packages.iter() {
-            graph.add_node(pkg.package_name.clone());
-            pkg.add_import_edges(&mut graph);
-        }
-        graph
-    }
-
-    fn get_package_by_name(&self, name: &str) -> Option<&Package> {
-        for pkg in self.packages.iter() {
-            if pkg.package_name == name {
-                return Some(pkg);
-            }
-        }
-        eprintln!("cannot find package named {}", name);
-        None
-    }
-
-    fn check_modules_in_order(&self) -> Result<()> {
-        for group in self.package_ordering.iter() {
-            // You could in theory check the items in `group` in parallel
-            for module_name in group.iter() {
-                let package = self.get_package_by_name(module_name).unwrap();
-                package.first_pass()?;
-                // TODO: Also infer types
-            }
-        }
-        Ok(())
+    // Take the next step in compiling: parse the files.
+    fn parse_files(self) -> Result<Parsed> {
+	let packages: Result<Vec<ParsedPackage>> = self.packages.into_iter()
+	    .map(|p| p.parse())
+	    .collect();
+	Ok(Parsed{packages: packages?})
     }
 }
+
 
 fn get_package_path(path: &str, base_path: &str) -> String {
     let mut parts: Vec<String> = path::Path::new(path)
@@ -305,4 +124,239 @@ fn read_path(path: &str) -> Result<String> {
     let mut contents = String::new();
     reader.read_to_string(&mut contents)?;
     Ok(contents)
+}
+
+
+impl PackageFiles {
+    fn new(package_name: String) -> Self {
+	let file_paths = vec![];
+	PackageFiles {package_name, file_paths}
+    }
+
+    fn add_file_path(&mut self, filename: String) {
+        self.file_paths.push(filename);
+    }
+
+    // Tokenize files without parsing them
+    fn tokenize(&self) -> Result<()> {
+	self.file_paths.iter()
+	    .map(|file_path| {
+		let contents = read_path(file_path)?;
+		tokenize_with_errors(file_path, contents.as_str())?;
+		Ok(())
+	    })
+	    .collect()
+    }
+
+    fn parse(self) -> Result<ParsedPackage> {
+	let parsed_files: Result<Vec<ParsedFile>> = self.file_paths.into_iter()
+	    .map(|name| {
+		let syntax = parse_file_path(name.as_str())?;
+		Ok(ParsedFile{syntax})
+	    })
+	    .collect();
+	Ok(ParsedPackage{
+	    package_name: self.package_name,
+	    files: parsed_files?,
+	})
+    }
+}
+
+
+/// tokenizes and parses a file, printing any errors
+fn parse_file_path(file_path: &str) -> Result<ast::Syntax> {
+    let contents = read_path(file_path)?;
+    let tokens = tokenize_with_errors(file_path, contents.as_str())?;
+    parse_with_errors(file_path, contents.as_str(), &tokens)
+}
+
+/// tokenize `contents` and print any errors
+fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
+    let tokens = tokenize(contents);
+    let unknown = tokens.display_unknown();
+    if !unknown.is_empty() {
+        eprintln!("Error parsing {}, found unknown tokens", file_path);
+
+	for selection in unknown.iter() {
+	    eprintln!("\n{}", selection.render_selection(&contents));
+	}
+
+	tokens.get_error()?;
+    }
+
+    Ok(tokens)
+}
+
+/// parse `tokens` and print any errors
+fn parse_with_errors(file_path: &str, file: &str, tokens: &Tokens) -> Result<ast::Syntax> {
+    let syntax = parse(file_path, &tokens);
+    if syntax.has_errors() {
+	eprintln!("Error parsing {}, syntax error", file_path);
+	eprintln!("{}", syntax.render_errors(file));
+	bail!("parse error");
+    }
+
+    Ok(syntax)
+}
+
+/// Parsed holds the results of parsing packages.
+///
+/// It provides an API to then do a topological sort of the packages by import order. For example,
+/// if package A imports package B, then B comes first in the ordering. That way, after processing
+/// B, the compiler has the information necessary to process A.
+struct Parsed {
+    packages: Vec<ParsedPackage>,
+}
+
+struct ParsedPackage  {
+    package_name: String,
+    files: Vec<ParsedFile>,
+}
+
+struct ParsedFile {
+    // name: String,
+    syntax: ast::Syntax,
+}
+
+
+impl Parsed {
+    fn check_import_order(self) -> Result<Ordered> {
+        let graph = self.build_import_graph();
+
+        if let Some(ordering) = graph.get_topo_ordering() {
+	    let package_groups = group_packages_by_ordering(ordering, self.packages);
+	    Ok(Ordered{package_groups})
+        } else {
+            let cycles = graph.find_cycles();
+            eprintln!("found cycles in the import graph");
+            for cycle in cycles.iter() {
+                eprintln!("  cycle: {:?}", cycle);
+            }
+            Err(anyhow!("found cycles in import graph"))
+        }
+    }
+
+
+    fn build_import_graph(&self) -> Graph<String> {
+        let mut graph = Graph::new();
+        for pkg in self.packages.iter() {
+            graph.add_node(pkg.package_name.clone());
+            pkg.add_import_edges(&mut graph);
+        }
+        graph
+    }
+}
+
+fn group_packages_by_ordering(
+    ordering: Vec<Vec<String>>,
+    packages: Vec<ParsedPackage>
+) -> Vec<Vec<ParsedPackage>> {
+    // Create empty Vec<>s for each group in the ordering
+    let mut groups: Vec<Vec<ParsedPackage>> = ordering
+	.iter().map(|_| Vec::new()).collect();
+    // Figure out which group each package name belongs to
+    let mut name_to_group = HashMap::new();
+    for (n, group) in ordering.into_iter().enumerate() {
+	for name in group {
+	    name_to_group.insert(name, n);
+	}
+    }
+    // Assign each package to its group
+    for package in packages {
+	let group_n = name_to_group.get(&package.package_name).unwrap();
+	groups[*group_n].push(package);
+    }
+
+    groups
+}
+
+impl ParsedPackage {
+    fn add_import_edges(&self, graph: &mut Graph<String>) {
+        for file in self.files.iter() {
+	    file.add_import_edges(self.package_name.as_str(), graph);
+        }
+    }
+
+    fn first_pass(&self) -> Result<()> {
+	// TODO: Also check whole-module properties, e.g. that two files don't declare the same
+	// name, or that one file imports a name that the other declares.
+	// First pass should also resolve imported names to their final (fully-qualified?) name, and
+	// return the updated structures. The type inference pass should be able to pick out the
+	// already-resolved types for the imported names.
+	for file in self.files.iter() {
+	    first_pass::check(&file.syntax)?;
+	}
+	Ok(())
+    }
+
+    fn check_declared_names(&self) -> Result<()> {
+        let allowed_to_skip_package_decl = self.package_name == "main";
+
+        let expected_name = self.package_name.split('.').last().unwrap();
+
+        for file in self.files.iter() {
+	    let syntax = &file.syntax;
+            let first_decl = if let Some(decl) = syntax.declarations.get(0) {
+                decl
+            } else {
+                // ignore empty files
+                continue;
+            };
+
+            if let ast::Declaration::PackageDecl(name) = first_decl {
+                if *name != expected_name {
+                    eprintln!(
+                        "file {} should declare package {} but declares package {} instead",
+                        syntax.filename, expected_name, name
+                    );
+		    bail!("wrong package error");
+                }
+            } else if !allowed_to_skip_package_decl {
+                eprintln!(
+                    "file {} should declare package {} but doesn't",
+                    syntax.filename, expected_name
+                );
+		bail!("no package error");
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ParsedFile {
+    fn add_import_edges(&self, package_name: &str, graph: &mut Graph<String>) {
+        for decl in self.syntax.declarations.iter() {
+            if let ast::Declaration::ImportDecl(names) = decl {
+                let name = names.join(".");
+                graph.add_edge(package_name.to_string(), name);
+            }
+        }
+    }
+}
+
+
+struct Ordered {
+    package_groups: Vec<Vec<ParsedPackage>>,
+}
+
+impl Ordered {
+    fn check_modules(self) -> Result<Checked> {
+	for group in self.package_groups.iter() {
+	    // In theory, the packages within a group could be processed in parallel since they have
+	    // no interdependencies
+	    for package in group.iter() {
+		// TODO: Should this be part of first pass?
+		package.check_declared_names()?;
+		package.first_pass()?;
+	    }
+	}
+	Ok(Checked{package_groups: self.package_groups})
+    }
+}
+
+struct Checked {
+    package_groups: Vec<Vec<ParsedPackage>>,
+}
+
+impl Checked {
 }

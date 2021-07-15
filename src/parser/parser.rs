@@ -1576,7 +1576,6 @@ impl<'a> Parser<'a> {
     }
 
     fn add_error(&mut self, message: &str) {
-	// TODO: use a proper location::Region for this
         self.syntax.add_error(self.make_error(self.index, message));
     }
 
