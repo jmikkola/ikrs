@@ -187,3 +187,42 @@ fn g():
     let formatted = format!("{:?}", result);
     assert!(formatted.contains("found cycles in import graph"), "{}", formatted);
 }
+
+#[test]
+fn test_fails_with_duplicate_declaration() {
+    let main = r#"
+package main
+
+import foo
+
+fn main():
+  foo.f()
+"#;
+
+    let a = r#"
+package foo
+
+fn f():
+  return 1
+"#;
+
+    let b = r#"
+package foo
+
+fn f():
+  return 2
+"#;
+
+    let setup = vec![("main.ik", main), ("foo/a.ik", a), ("foo/b.ik", b)];
+    let (_tmp_dir, base_path, file_paths) = setup_test_dir(setup).unwrap();
+
+    let result = compile(file_paths, &base_path, &Args::new());
+
+    assert!(result.is_err(), "{:?}", result);
+    let formatted = format!("{:?}", result);
+    assert!(formatted.contains("duplicate declaration of f"), "{}", formatted);
+}
+
+// TODO: Test the case where two files import the same name
+// TODO: Test when one file imports the same name twice
+// TODO: Test a conflict between a name imported in one file and a type declared in another
