@@ -182,6 +182,8 @@ fn g():
     let (_tmp_dir, base_path, file_paths) = setup_test_dir(setup).unwrap();
 
     let result = compile(file_paths, &base_path, &Args::new());
-    // TODO: Make an assertion about which error it is once that's possible
+
     assert!(result.is_err(), "{:?}", result);
+    let formatted = format!("{:?}", result);
+    assert!(formatted.contains("found cycles in import graph"), "{}", formatted);
 }
