@@ -149,6 +149,7 @@ impl Substitution {
 }
 
 // e.g. (Num a) -- class="Num", type="a"
+#[derive(Clone)]
 struct Predicate {
     class: SRef,
     typ: TypeRef,
@@ -205,6 +206,7 @@ impl TypeRef {
     }
 }
 
+#[derive(Clone)]
 struct Qualified<T> {
     predicates: Vec<Predicate>,
     t: T,
@@ -239,6 +241,21 @@ impl ClassEnv {
         let child_class = self.classes.get(&child).unwrap();
         child_class.superclasses.iter()
             .any(|sup| self.is_super_class(parent, *sup))
+    }
+
+    fn find_matching_instance(&self, class: SRef, typ: TypeRef, inference: &mut Inference)
+                              -> Option<Vec<Predicate>> {
+        let p = Predicate{class, typ};
+
+        let instances = &self.classes.get(&class).unwrap().instances;
+        instances.iter().find_map(|inst| {
+            // if the instance's type matches the passed-in type, the result of matches will be
+            // Some(Substitution)
+            inst.t.matches(&p, inference)
+                // when the type matches, take that substitution and apply it to the predicates,
+                // then return those predicates
+		.map(|sub| inst.predicates.apply(&sub, inference))
+	})
     }
 }
 
@@ -311,5 +328,30 @@ impl Types for TypeRef {
             },
             Gen(_, _) => {},
         }
+    }
+}
+
+impl Types for Predicate {
+    fn apply(&self, sub: &Substitution, inference: &mut Inference) -> Self {
+	Predicate{
+	    class: self.class,
+	    typ: self.typ.apply(sub, inference),
+	}
+    }
+
+    fn free_type_vars(&self, inference: &mut Inference, out: &mut HashSet<TypeVar>) {
+	self.typ.free_type_vars(inference, out);
+    }
+}
+
+impl<T> Types for Vec<T> where T: Types {
+    fn apply(&self, sub: &Substitution, inference: &mut Inference) -> Self {
+	self.iter().map(|t| t.apply(sub, inference)).collect()
+    }
+
+    fn free_type_vars(&self, inference: &mut Inference, out: &mut HashSet<TypeVar>) {
+	for t in self.iter() {
+	    t.free_type_vars(inference, out);
+	}
     }
 }
