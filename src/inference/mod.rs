@@ -100,51 +100,51 @@ struct Substitution {
 
 impl Substitution {
     fn compose(&self, other: &Substitution, inference: &mut Inference) -> Substitution {
-	let mut substitutions = HashMap::<TypeRef, TypeRef>::new();
+        let mut substitutions = HashMap::<TypeRef, TypeRef>::new();
 
-	for (key, val) in self.substitutions.iter() {
-	    substitutions.insert(*key, val.apply(other, inference));
-	}
-	for (key, val) in other.substitutions.iter() {
-	    substitutions.insert(*key, *val);
-	}
+        for (key, val) in self.substitutions.iter() {
+            substitutions.insert(*key, val.apply(other, inference));
+        }
+        for (key, val) in other.substitutions.iter() {
+            substitutions.insert(*key, *val);
+        }
 
-	Substitution{substitutions}
+        Substitution{substitutions}
     }
 
     fn merge(&self, other: &Substitution) -> Option<Substitution> {
-	// Do the two substitutions agree on all points they share in common?
-	for (key, val1) in self.substitutions.iter() {
-	    if let Some(val2) = other.substitutions.get(key) {
-		if *val1 != *val2 {
-		    return None
-		}
-	    }
-	}
+        // Do the two substitutions agree on all points they share in common?
+        for (key, val1) in self.substitutions.iter() {
+            if let Some(val2) = other.substitutions.get(key) {
+                if *val1 != *val2 {
+                    return None
+                }
+            }
+        }
 
-	// Since the results agree, they can be safely merged
-	let mut result = Substitution::empty();
-	for (key, val) in self.substitutions.iter() {
-	    result.add(*key, *val);
-	}
-	for (key, val) in other.substitutions.iter() {
-	    result.add(*key, *val);
-	}
-	Some(result)
+        // Since the results agree, they can be safely merged
+        let mut result = Substitution::empty();
+        for (key, val) in self.substitutions.iter() {
+            result.add(*key, *val);
+        }
+        for (key, val) in other.substitutions.iter() {
+            result.add(*key, *val);
+        }
+        Some(result)
     }
 
     fn empty() -> Self {
-	Substitution{substitutions: HashMap::new()}
+        Substitution{substitutions: HashMap::new()}
     }
 
     fn singleton(original: TypeRef, replacement: TypeRef) -> Self {
-	let mut sub = Substitution::empty();
-	sub.add(original, replacement);
-	sub
+        let mut sub = Substitution::empty();
+        sub.add(original, replacement);
+        sub
     }
 
     fn add(&mut self, original: TypeRef, replacement: TypeRef) {
-	self.substitutions.insert(original, replacement);
+        self.substitutions.insert(original, replacement);
     }
 }
 
@@ -156,52 +156,52 @@ struct Predicate {
 
 impl Predicate {
     fn matches(&self, other: &Predicate, inference: &Inference) -> Option<Substitution> {
-	if self.class == other.class {
-	    self.typ.matches(other.typ, inference)
-	} else {
-	    None
-	}
+        if self.class == other.class {
+            self.typ.matches(other.typ, inference)
+        } else {
+            None
+        }
     }
 }
 
 impl TypeRef {
     fn matches(&self, other: TypeRef, inference: &Inference) -> Option<Substitution> {
-	use Type::*;
+        use Type::*;
 
-	if *self == other {
-	    return Some(Substitution::empty())
-	}
+        if *self == other {
+            return Some(Substitution::empty())
+        }
 
-	let other_type = inference.get_type(other).clone();
+        let other_type = inference.get_type(other).clone();
 
-	match inference.get_type(*self).clone() {
-	    App(left1, right1) => match other_type {
-		App(left2, right2) => {
-		    let sub1 = left1.matches(left2, inference)?;
-		    let sub2 = right1.matches(right2, inference)?;
-		    sub1.merge(&sub2)
-		},
-		_ => None,
-	    },
+        match inference.get_type(*self).clone() {
+            App(left1, right1) => match other_type {
+                App(left2, right2) => {
+                    let sub1 = left1.matches(left2, inference)?;
+                    let sub2 = right1.matches(right2, inference)?;
+                    sub1.merge(&sub2)
+                },
+                _ => None,
+            },
 
-	    Con(c1, k1) => match other_type {
-		Con(c2, k2) if c1 == c2 && k1 == k2 => {
-		    Some(Substitution::empty())
-		},
-		_ => None,
-	    },
+            Con(c1, k1) => match other_type {
+                Con(c2, k2) if c1 == c2 && k1 == k2 => {
+                    Some(Substitution::empty())
+                },
+                _ => None,
+            },
 
-	    Func(n1, k1) => match other_type {
-		Func(n2, k2) if n1 == n2 && k1 == k2 => {
-		    Some(Substitution::empty())
-		},
-		_ => None,
-	    },
+            Func(n1, k1) => match other_type {
+                Func(n2, k2) if n1 == n2 && k1 == k2 => {
+                    Some(Substitution::empty())
+                },
+                _ => None,
+            },
 
-	    Var(_, _) => Some(Substitution::singleton(*self, other)),
+            Var(_, _) => Some(Substitution::singleton(*self, other)),
 
-	    Gen(_, _) => panic!("compiler bug: LHS of match is a generic"),
-	}
+            Gen(_, _) => panic!("compiler bug: LHS of match is a generic"),
+        }
     }
 }
 
@@ -232,13 +232,13 @@ impl ClassEnv {
     // It is an error to call this with an SRef that isn't a class.
     // This returns true if parent == child.
     fn is_super_class(&self, parent: SRef, child: SRef) -> bool {
-	if parent == child {
-	    return true;
-	}
+        if parent == child {
+            return true;
+        }
 
-	let child_class = self.classes.get(&child).unwrap();
-	child_class.superclasses.iter()
-	    .any(|sup| self.is_super_class(parent, *sup))
+        let child_class = self.classes.get(&child).unwrap();
+        child_class.superclasses.iter()
+            .any(|sup| self.is_super_class(parent, *sup))
     }
 }
 
@@ -268,7 +268,7 @@ impl HasKind for Type {
 
 impl HasKind for TypeVar {
     fn kind(&self, _: &Inference) -> KindRef {
-	self.kind
+        self.kind
     }
 }
 
@@ -280,36 +280,36 @@ trait Types {
 
 impl Types for TypeRef {
     fn apply(&self, sub: &Substitution, inference: &mut Inference) -> Self {
-	use Type::*;
-	if let Some(tref) = sub.substitutions.get(self) {
-	    return *tref;
-	}
+        use Type::*;
+        if let Some(tref) = sub.substitutions.get(self) {
+            return *tref;
+        }
 
-	match inference.get_type(*self).clone() {
-	    App(left, right) => {
-		let result = App(left.apply(sub, inference), right.apply(sub, inference));
-		inference.save_type(result)
-	    },
-	    Con(_, _) => *self,
-	    Func(_, _) => *self,
-	    Var(_, _) => *self,
-	    Gen(_, _) => *self,
-	}
+        match inference.get_type(*self).clone() {
+            App(left, right) => {
+                let result = App(left.apply(sub, inference), right.apply(sub, inference));
+                inference.save_type(result)
+            },
+            Con(_, _) => *self,
+            Func(_, _) => *self,
+            Var(_, _) => *self,
+            Gen(_, _) => *self,
+        }
     }
 
     fn free_type_vars(&self, inference: &mut Inference, out: &mut HashSet<TypeVar>) {
-	use Type::*;
-	match inference.get_type(*self).clone() {
-	    Con(_, _) => {},
-	    Func(_, _) => {},
-	    App(left, right) => {
-		left.free_type_vars(inference, out);
-		right.free_type_vars(inference, out);
-	    },
-	    Var(name, kind) => {
-		out.insert(TypeVar{name, kind});
-	    },
-	    Gen(_, _) => {},
-	}
+        use Type::*;
+        match inference.get_type(*self).clone() {
+            Con(_, _) => {},
+            Func(_, _) => {},
+            App(left, right) => {
+                left.free_type_vars(inference, out);
+                right.free_type_vars(inference, out);
+            },
+            Var(name, kind) => {
+                out.insert(TypeVar{name, kind});
+            },
+            Gen(_, _) => {},
+        }
     }
 }
