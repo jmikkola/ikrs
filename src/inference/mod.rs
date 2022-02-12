@@ -93,8 +93,38 @@ struct TypeVar {
     kind: KindRef,
 }
 
+#[derive(Debug, PartialEq)]
 struct Substitution {
     substitutions: HashMap<TypeRef, TypeRef>,
+}
+
+impl Substitution {
+    fn compose(&self, other: &Substitution, inference: &mut Inference) -> Substitution {
+	let mut substitutions = HashMap::<TypeRef, TypeRef>::new();
+
+	for (key, val) in self.substitutions.iter() {
+	    substitutions.insert(*key, val.apply(other, inference));
+	}
+	for (key, val) in other.substitutions.iter() {
+	    substitutions.insert(*key, *val);
+	}
+
+	Substitution{substitutions}
+    }
+
+    fn empty() -> Self {
+	Substitution{substitutions: HashMap::new()}
+    }
+
+    fn singleton(original: TypeRef, replacement: TypeRef) -> Self {
+	let mut sub = Substitution::empty();
+	sub.add(original, replacement);
+	sub
+    }
+
+    fn add(&mut self, original: TypeRef, replacement: TypeRef) {
+	self.substitutions.insert(original, replacement);
+    }
 }
 
 // e.g. (Num a) -- class="Num", type="a"
