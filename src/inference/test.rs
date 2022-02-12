@@ -6,6 +6,11 @@ fn simple_var(inference: &mut Inference, name: &str) -> TypeRef {
     inference.save_type(t)
 }
 
+fn type_app(inference: &mut Inference, left: TypeRef, right: TypeRef) -> TypeRef {
+    let t = Type::App(left, right);
+    inference.save_type(t)
+}
+
 #[test]
 fn test_storing_kinds() {
     let mut inf = Inference::new();
@@ -89,4 +94,24 @@ fn test_merging_subsitutions() {
 
     // Test a case where the two disagree
     assert!(a2b.merge(&a2c).is_none());
+}
+
+#[test]
+fn test_matching_types() {
+    let mut inference = Inference::new();
+    let a = simple_var(&mut inference, "a");
+    let b = simple_var(&mut inference, "b");
+    let c = simple_var(&mut inference, "c");
+
+    let t_aa = type_app(&mut inference, a, a);
+    let t_bc = type_app(&mut inference, b, c);
+
+    // Replacing two vars with one thing is OK
+    let mut expected = Substitution::empty();
+    expected.add(b, a);
+    expected.add(c, a);
+    assert!(expected == t_bc.matches(t_aa, &inference).unwrap());
+
+    // Replacing one var with two things isn't
+    assert!(t_aa.matches(t_bc, &inference).is_none());
 }
