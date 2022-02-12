@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 
 mod args;
 mod compiler;
-// mod inference;
+mod inference;
 mod parser;
 mod util;
 

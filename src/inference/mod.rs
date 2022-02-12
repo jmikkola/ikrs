@@ -1,8 +1,9 @@
 // inference package
 
-// use std::collections::HashMap;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
-use super::util::Indexed;
+use super::util::indexed::Indexed;
 
 #[cfg(test)]
 mod test;
@@ -92,6 +93,10 @@ struct TypeVar {
     kind: KindRef,
 }
 
+struct Substitution {
+    substitutions: HashMap<TypeRef, TypeRef>,
+}
+
 trait HasKind {
     fn kind(&self, inference: &Inference) -> KindRef;
 }
@@ -117,7 +122,49 @@ impl HasKind for Type {
 }
 
 impl HasKind for TypeVar {
-    fn kind(&self, inference: &Inference) -> KindRef {
+    fn kind(&self, _: &Inference) -> KindRef {
 	self.kind
+    }
+}
+
+trait Types {
+    fn apply(&self, sub: &Substitution, inference: &mut Inference) -> Self;
+
+    fn free_type_vars(&self, inference: &mut Inference, out: &mut HashSet<TypeVar>);
+}
+
+impl Types for TypeRef {
+    fn apply(&self, sub: &Substitution, inference: &mut Inference) -> Self {
+	use Type::*;
+	if let Some(tref) = sub.substitutions.get(self) {
+	    return *tref;
+	}
+
+	match inference.get_type(*self).clone() {
+	    App(left, right) => {
+		let result = App(left.apply(sub, inference), right.apply(sub, inference));
+		inference.save_type(result)
+	    },
+	    Con(_, _) => *self,
+	    Func(_, _) => *self,
+	    Var(_, _) => *self,
+	    Gen(_, _) => *self,
+	}
+    }
+
+    fn free_type_vars(&self, inference: &mut Inference, out: &mut HashSet<TypeVar>) {
+	use Type::*;
+	match inference.get_type(*self).clone() {
+	    Con(_, _) => {},
+	    Func(_, _) => {},
+	    App(left, right) => {
+		left.free_type_vars(inference, out);
+		right.free_type_vars(inference, out);
+	    },
+	    Var(name, kind) => {
+		out.insert(TypeVar{name, kind});
+	    },
+	    Gen(_, _) => {},
+	}
     }
 }
