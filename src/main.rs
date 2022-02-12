@@ -7,6 +7,7 @@ use walkdir::WalkDir;
 
 mod args;
 mod compiler;
+#[allow(dead_code)]
 mod inference;
 mod parser;
 mod util;

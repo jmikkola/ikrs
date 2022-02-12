@@ -420,6 +420,7 @@ impl Ordered {
 }
 
 struct Checked {
+    #[allow(dead_code)]
     package_groups: Vec<Vec<ParsedPackage>>,
 }
 

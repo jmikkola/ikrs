@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use itertools::Itertools;
+
 use super::util::indexed::Indexed;
 
 #[cfg(test)]
@@ -163,6 +165,10 @@ impl Predicate {
             None
         }
     }
+
+    fn in_head_normal_form(&self, inference: &Inference) -> bool {
+	self.typ.in_head_normal_form(inference)
+    }
 }
 
 impl TypeRef {
@@ -203,6 +209,16 @@ impl TypeRef {
 
             Gen(_, _) => panic!("compiler bug: LHS of match is a generic"),
         }
+    }
+
+    fn in_head_normal_form(&self, inference: &Inference) -> bool {
+        use Type::*;
+
+        match inference.get_type(*self).clone() {
+	    Var(_, _) => true,
+	    App(l, _) => l.in_head_normal_form(inference),
+	    _ => false,
+	}
     }
 }
 
@@ -262,13 +278,13 @@ impl ClassEnv {
 	})
     }
 
-    // Assuming all of `given_predicates` hold, does that imply that `p` also holds?
-    fn entail(&self, given_predicates: &Vec<Predicate>, p: &Predicate, inference: &mut Inference) -> bool {
+    // Assuming all of `given` hold, does that imply that `p` also holds?
+    fn entail(&self, given: &[Predicate], p: &Predicate, inference: &mut Inference) -> bool {
         // If p is a superclass of any of the classes in the given predicates, then you know the
         // type must also implement p.
         // Example: if p is (Eq a) and given predicates are (Ord a, Show a), you know that p must
         // also be available since it's a superclass of Ord.
-        let is_super_class = given_predicates.iter().any(|given| self.is_super_class(p.class, given.class));
+        let is_super_class = given.iter().any(|given| self.is_super_class(p.class, given.class));
         if is_super_class {
             return true;
         }
@@ -278,11 +294,26 @@ impl ClassEnv {
             // if that instance has any predicates of its own (e.g. (Show a) => Show [a]), ensure
             // that those predicates are all entailed.
             return instance_predicates.iter()
-                .all(|inst_pred| self.entail(given_predicates, inst_pred, inference));
+                .all(|inst_pred| self.entail(given, inst_pred, inference));
         }
 
         // those are the only two ways the predicate could be entailed
         false
+    }
+
+    // remove redundant predicates, e.g. [Eq a, Ord a, Ord a] --> [Ord a]
+    fn simplify_predicates(&self, predicates: &Vec<Predicate>, inference: &mut Inference) -> Vec<Predicate> {
+	let mut source = predicates.clone();
+	let mut keep = Vec::new();
+
+	while let Some(p) = source.pop() {
+	    let given = keep.iter().chain(source.iter()).cloned().collect_vec();
+	    if !self.entail(&given, &p, inference) {
+		keep.push(p);
+	    }
+	}
+
+	keep
     }
 }
 
