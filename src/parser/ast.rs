@@ -177,6 +177,7 @@ impl Syntax {
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Declaration {
     DeclarationParseError,
 
@@ -215,6 +216,7 @@ impl Inspect for &Declaration {
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Statement {
     StatementParseError,
 
@@ -294,6 +296,7 @@ impl Inspect for LetStatement {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::enum_variant_names)]
 pub enum Expression {
     ExpressionParseError,
 
@@ -367,6 +370,7 @@ impl Inspect for Expression {
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Type {
     TypeParseError,
 
@@ -706,6 +710,7 @@ impl Inspect for Matcher {
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Pattern {
     PatternParseError,
 

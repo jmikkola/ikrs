@@ -94,7 +94,7 @@ fn path_to_string(path: &Path) -> String {
 
 fn ensure_parent_exists(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
-        ensure_parent_exists(&parent)?;
+        ensure_parent_exists(parent)?;
         if !parent.exists() {
             std::fs::create_dir(parent)?;
         }

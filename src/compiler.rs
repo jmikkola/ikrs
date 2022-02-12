@@ -92,6 +92,7 @@ impl GroupedFiles {
     }
 
     // Take the next step in compiling: parse the files.
+    #[allow(clippy::needless_collect)]
     fn parse_files(self) -> Result<Parsed> {
 	let package_results: Vec<Result<ParsedPackage>> = self.packages.into_iter()
 	    .map(|p| p.parse())
@@ -159,6 +160,7 @@ impl PackageFiles {
 	Ok(())
     }
 
+    #[allow(clippy::needless_collect)]
     fn parse(self) -> Result<ParsedPackage> {
 	let parsed_files: Vec<Result<ParsedFile>> = self.file_paths.into_iter()
 	    .map(|name| {
@@ -193,7 +195,7 @@ fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
         eprintln!("Error parsing {}, found unknown tokens", file_path);
 
 	for selection in unknown.iter() {
-	    eprintln!("\n{}", selection.render_selection(&contents));
+	    eprintln!("\n{}", selection.render_selection(contents));
 	}
 
 	tokens.get_error()?;
@@ -204,7 +206,7 @@ fn tokenize_with_errors(file_path: &str, contents: &str) -> Result<Tokens> {
 
 /// parse `tokens` and print any errors
 fn parse_with_errors(file_path: &str, file: &str, tokens: &Tokens) -> Result<ast::Syntax> {
-    let syntax = parse(file_path, &tokens);
+    let syntax = parse(file_path, tokens);
     if syntax.has_errors() {
 	eprintln!("Error parsing {}, syntax error", file_path);
 	eprintln!("{}", syntax.render_errors(file));

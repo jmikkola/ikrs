@@ -145,7 +145,7 @@ impl DisplaySelection {
 
 impl std::fmt::Display for DisplaySelection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "{}", self.highlight.to_string())
+	write!(f, "{}", self.highlight)
     }
 }
 
