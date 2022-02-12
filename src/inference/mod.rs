@@ -73,6 +73,77 @@ impl Inference {
     pub fn get_type(&self, TypeRef(r): TypeRef) -> &Type {
         self.types.get(r)
     }
+
+    fn most_general_unifier(&mut self, a: TypeRef, b: TypeRef) -> Result<Substitution> {
+        use Type::*;
+
+        let a_type = self.get_type(a).clone();
+        let b_type = self.get_type(b).clone();
+        match (a_type, b_type) {
+            (Func(n1, k1), Func(n2, k2)) =>
+                self.mismatch_unless(a, b, n1 == n2 && k1 == k2),
+
+            (Con(t1, k1), Con(t2, k2)) =>
+                self.mismatch_unless(a, b, t1 == t2 && k1 == k2),
+
+            (App(l1, r1), App(l2, r2)) => {
+                let sub1 = self.most_general_unifier(l1, l2)?;
+                let r1_subbed = r1.apply(&sub1, self);
+                let r2_subbed = r2.apply(&sub1, self);
+                let sub2 = self.most_general_unifier(r1_subbed, r2_subbed)?;
+                Ok(sub1.compose(&sub2, self))
+            },
+
+            (Gen(_, _), _) =>
+                panic!("a generic variable shouldn't be passed to most_general_unifier"),
+            (_, Gen(_, _)) =>
+                panic!("a generic variable shouldn't be passed to most_general_unifier"),
+
+            (Var(v, k), _) =>
+                self.bind_variable(v, k, b),
+            (_, Var(v, k)) =>
+                self.bind_variable(v, k, a),
+
+            _ =>
+                self.mismatch_error(a, b),
+	}
+    }
+
+    fn bind_variable(&mut self, name: SRef, kind: KindRef, other: TypeRef) -> Result<Substitution> {
+	let typ = Type::Var(name, kind);
+	if *self.get_type(other) == typ {
+	    return Ok(Substitution::empty());
+	}
+
+	if self.free_type_variables(other).contains(&TypeVar{name, kind}) {
+	    bail!("infinite type");
+	}
+
+	if kind != other.kind(self) {
+	    bail!("kind mismatch");
+	}
+
+	let typ_ref = self.save_type(typ);
+	Ok(Substitution::singleton(typ_ref, other))
+    }
+
+    fn free_type_variables(&mut self, typ: TypeRef) -> HashSet<TypeVar> {
+	let mut out = HashSet::new();
+	typ.free_type_vars(self, &mut out);
+	out
+    }
+
+    fn mismatch_unless(&self, a: TypeRef, b: TypeRef, condition: bool) -> Result<Substitution> {
+	if condition {
+	    Ok(Substitution::empty())
+	} else {
+	    self.mismatch_error(a, b)
+	}
+    }
+
+    fn mismatch_error(&self, a: TypeRef, b: TypeRef) -> Result<Substitution> {
+	bail!("mismatch between types {:?} and {:?}", self.get_type(a), self.get_type(b))
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
@@ -352,6 +423,12 @@ impl ClassEnv {
 
 trait HasKind {
     fn kind(&self, inference: &Inference) -> KindRef;
+}
+
+impl HasKind for TypeRef {
+    fn kind(&self, inference: &Inference) -> KindRef {
+	inference.get_type(*self).kind(inference)
+    }
 }
 
 impl HasKind for Type {
