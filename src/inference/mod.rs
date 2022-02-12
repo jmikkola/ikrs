@@ -243,6 +243,10 @@ impl ClassEnv {
             .any(|sup| self.is_super_class(parent, *sup))
     }
 
+    /// Look through the instances of class `class` and see if any match the type `typ`.
+    /// (There shouldn't be more that one match)
+    /// If one matches, return that instance's predicates (after tweaking them so that the types
+    /// match up).
     fn find_matching_instance(&self, class: SRef, typ: TypeRef, inference: &mut Inference)
                               -> Option<Vec<Predicate>> {
         let p = Predicate{class, typ};
@@ -256,6 +260,29 @@ impl ClassEnv {
                 // then return those predicates
 		.map(|sub| inst.predicates.apply(&sub, inference))
 	})
+    }
+
+    // Assuming all of `given_predicates` hold, does that imply that `p` also holds?
+    fn entail(&self, given_predicates: &Vec<Predicate>, p: &Predicate, inference: &mut Inference) -> bool {
+        // If p is a superclass of any of the classes in the given predicates, then you know the
+        // type must also implement p.
+        // Example: if p is (Eq a) and given predicates are (Ord a, Show a), you know that p must
+        // also be available since it's a superclass of Ord.
+        let is_super_class = given_predicates.iter().any(|given| self.is_super_class(p.class, given.class));
+        if is_super_class {
+            return true;
+        }
+
+        // Check if p is given by some instance whose predicates all hold.
+        if let Some(instance_predicates) = self.find_matching_instance(p.class, p.typ, inference) {
+            // if that instance has any predicates of its own (e.g. (Show a) => Show [a]), ensure
+            // that those predicates are all entailed.
+            return instance_predicates.iter()
+                .all(|inst_pred| self.entail(given_predicates, inst_pred, inference));
+        }
+
+        // those are the only two ways the predicate could be entailed
+        false
     }
 }
 
