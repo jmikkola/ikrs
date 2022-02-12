@@ -1,5 +1,11 @@
 use super::*;
 
+fn simple_var(inference: &mut Inference, name: &str) -> TypeRef {
+    let s = inference.save_string(name.to_owned());
+    let t = Type::Var(s, inference.star_kind());
+    inference.save_type(t)
+}
+
 #[test]
 fn test_storing_kinds() {
     let mut inf = Inference::new();
@@ -29,10 +35,8 @@ fn test_composing_substitutions() {
 
     assert!(empty == empty.compose(&empty, &mut inference));
 
-    let type_a = Type::Var(inference.save_string("a".to_owned()), inference.star_kind());
-    let type_b = Type::Var(inference.save_string("b".to_owned()), inference.star_kind());
-    let a = inference.save_type(type_a);
-    let b = inference.save_type(type_b);
+    let a = simple_var(&mut inference, "a");
+    let b = simple_var(&mut inference, "b");
     let a2b = Substitution::singleton(a, b);
 
     // Composing a (valid) substitution with itself doesn't change anything
@@ -41,8 +45,7 @@ fn test_composing_substitutions() {
     assert!(a2b == a2b.compose(&empty, &mut inference));
     assert!(a2b == empty.compose(&a2b, &mut inference));
 
-    let type_c = Type::Var(inference.save_string("c".to_owned()), inference.star_kind());
-    let c = inference.save_type(type_c);
+    let c = simple_var(&mut inference, "c");
     let b2c = Substitution::singleton(b, c);
 
     let mut expected = Substitution::empty();
