@@ -302,8 +302,8 @@ impl ClassEnv {
     }
 
     // remove redundant predicates, e.g. [Eq a, Ord a, Ord a] --> [Ord a]
-    fn simplify_predicates(&self, predicates: &Vec<Predicate>, inference: &mut Inference) -> Vec<Predicate> {
-	let mut source = predicates.clone();
+    fn simplify_predicates(&self, predicates: &[Predicate], inference: &mut Inference) -> Vec<Predicate> {
+	let mut source: Vec<Predicate> = predicates.to_owned();
 	let mut keep = Vec::new();
 
 	while let Some(p) = source.pop() {
