@@ -54,3 +54,39 @@ fn test_composing_substitutions() {
 
     assert!(expected == a2b.compose(&b2c, &mut inference));
 }
+
+#[test]
+fn test_merging_subsitutions() {
+    let mut inference = Inference::new();
+
+    let empty = Substitution::empty();
+
+    assert!(empty == empty.merge(&empty).unwrap());
+
+    let a = simple_var(&mut inference, "a");
+    let b = simple_var(&mut inference, "b");
+    let a2b = Substitution::singleton(a, b);
+
+    // Composing a (valid) substitution with itself doesn't change anything
+    assert!(a2b == a2b.merge(&a2b).unwrap());
+    // Composing a substitution with the empty substitution does nothing
+    assert!(a2b == a2b.merge(&empty).unwrap());
+    assert!(a2b == empty.merge(&a2b).unwrap());
+
+    let c = simple_var(&mut inference, "c");
+    let d = simple_var(&mut inference, "d");
+    let c2d = Substitution::singleton(c, d);
+
+    let mut expected = Substitution::empty();
+    expected.add(a, b);
+    expected.add(c, d);
+
+    // Test that the fields from the two are added together
+    assert!(expected == a2b.merge(&c2d).unwrap());
+    assert!(expected == c2d.merge(&a2b).unwrap());
+
+    let a2c = Substitution::singleton(a, c);
+
+    // Test a case where the two disagree
+    assert!(a2b.merge(&a2c).is_none());
+}
