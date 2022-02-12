@@ -86,6 +86,12 @@ enum Type {
     Gen(u32, KindRef),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct TypeVar {
+    name: SRef,
+    kind: KindRef,
+}
+
 trait HasKind {
     fn kind(&self, inference: &Inference) -> KindRef;
 }
@@ -107,5 +113,11 @@ impl HasKind for Type {
             Var(_, k) => k,
             Gen(_, k) => k,
         }
+    }
+}
+
+impl HasKind for TypeVar {
+    fn kind(&self, inference: &Inference) -> KindRef {
+	self.kind
     }
 }
