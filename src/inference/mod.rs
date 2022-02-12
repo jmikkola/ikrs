@@ -97,6 +97,30 @@ struct Substitution {
     substitutions: HashMap<TypeRef, TypeRef>,
 }
 
+// e.g. (Num a) -- class="Num", type="a"
+struct Predicate {
+    class: SRef,
+    typ: TypeRef,
+}
+
+struct Qualified<T> {
+    predicates: Vec<Predicate>,
+    t: T,
+}
+
+type QualType = Qualified<Type>;
+type Instance = Qualified<Predicate>;
+
+struct Scheme {
+    kinds: Vec<KindRef>,
+    typ: QualType,
+}
+
+struct Class {
+    superclasses: Vec<SRef>,
+    instances: Vec<Instance>,
+}
+
 trait HasKind {
     fn kind(&self, inference: &Inference) -> KindRef;
 }
