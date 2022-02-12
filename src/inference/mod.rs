@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use anyhow::{bail, Result};
 use itertools::Itertools;
 
 use super::util::indexed::Indexed;
@@ -247,6 +248,12 @@ struct ClassEnv {
 }
 
 impl ClassEnv {
+    // Converts predicates to head normal form and simplifies them
+    fn reduce(&self, predicates: &[Predicate], inference: &mut Inference) -> Result<Vec<Predicate>> {
+        let preds_in_hnf = self.preds_to_head_normal_form(predicates, inference)?;
+        Ok(self.simplify_predicates(&preds_in_hnf, inference))
+    }
+
     // It is an error to call this with an SRef that isn't a class.
     // This returns true if parent == child.
     fn is_super_class(&self, parent: SRef, child: SRef) -> bool {
@@ -314,6 +321,32 @@ impl ClassEnv {
 	}
 
 	keep
+    }
+
+    fn pred_to_head_normal_form(&self, predicate: &Predicate, inference: &mut Inference)
+				-> Result<Vec<Predicate>> {
+	// If it's already in HNF, there's no more work to do
+	if predicate.in_head_normal_form(inference) {
+	    return Ok(vec![predicate.clone()]);
+	}
+
+	// Otherwise, there needs to be an instance for the concrete type.
+	match self.find_matching_instance(predicate.class, predicate.typ, inference) {
+	    Some(new_predicates) =>
+		self.preds_to_head_normal_form(&new_predicates, inference),
+	    None =>
+		bail!("context reduction failure"),
+	}
+    }
+
+    fn preds_to_head_normal_form(&self, predicates: &[Predicate], inference: &mut Inference)
+				 -> Result<Vec<Predicate>> {
+	let mut results = Vec::new();
+	for predicate in predicates.iter() {
+	    let new_predicates = self.pred_to_head_normal_form(predicate, inference)?;
+	    results.extend(new_predicates.into_iter());
+	}
+	Ok(results)
     }
 }
 
