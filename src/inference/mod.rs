@@ -112,6 +112,27 @@ impl Substitution {
 	Substitution{substitutions}
     }
 
+    fn merge(&self, other: &Substitution) -> Option<Substitution> {
+	// Do the two substitutions agree on all points they share in common?
+	for (key, val1) in self.substitutions.iter() {
+	    if let Some(val2) = other.substitutions.get(key) {
+		if *val1 != *val2 {
+		    return None
+		}
+	    }
+	}
+
+	// Since the results agree, they can be safely merged
+	let mut result = Substitution::empty();
+	for (key, val) in self.substitutions.iter() {
+	    result.add(*key, *val);
+	}
+	for (key, val) in other.substitutions.iter() {
+	    result.add(*key, *val);
+	}
+	Some(result)
+    }
+
     fn empty() -> Self {
 	Substitution{substitutions: HashMap::new()}
     }
@@ -133,6 +154,57 @@ struct Predicate {
     typ: TypeRef,
 }
 
+impl Predicate {
+    fn matches(&self, other: &Predicate, inference: &Inference) -> Option<Substitution> {
+	if self.class == other.class {
+	    self.typ.matches(other.typ, inference)
+	} else {
+	    None
+	}
+    }
+}
+
+impl TypeRef {
+    fn matches(&self, other: TypeRef, inference: &Inference) -> Option<Substitution> {
+	use Type::*;
+
+	if *self == other {
+	    return Some(Substitution::empty())
+	}
+
+	let other_type = inference.get_type(other).clone();
+
+	match inference.get_type(*self).clone() {
+	    App(left1, right1) => match other_type {
+		App(left2, right2) => {
+		    let sub1 = left1.matches(left2, inference)?;
+		    let sub2 = right1.matches(right2, inference)?;
+		    sub1.merge(&sub2)
+		},
+		_ => None,
+	    },
+
+	    Con(c1, k1) => match other_type {
+		Con(c2, k2) if c1 == c2 && k1 == k2 => {
+		    Some(Substitution::empty())
+		},
+		_ => None,
+	    },
+
+	    Func(n1, k1) => match other_type {
+		Func(n2, k2) if n1 == n2 && k1 == k2 => {
+		    Some(Substitution::empty())
+		},
+		_ => None,
+	    },
+
+	    Var(_, _) => Some(Substitution::singleton(*self, other)),
+
+	    Gen(_, _) => panic!("compiler bug: LHS of match is a generic"),
+	}
+    }
+}
+
 struct Qualified<T> {
     predicates: Vec<Predicate>,
     t: T,
@@ -149,6 +221,25 @@ struct Scheme {
 struct Class {
     superclasses: Vec<SRef>,
     instances: Vec<Instance>,
+}
+
+struct ClassEnv {
+    classes: HashMap<SRef, Class>,
+    // should I add a list of default types?
+}
+
+impl ClassEnv {
+    // It is an error to call this with an SRef that isn't a class.
+    // This returns true if parent == child.
+    fn is_super_class(&self, parent: SRef, child: SRef) -> bool {
+	if parent == child {
+	    return true;
+	}
+
+	let child_class = self.classes.get(&child).unwrap();
+	child_class.superclasses.iter()
+	    .any(|sup| self.is_super_class(parent, *sup))
+    }
 }
 
 trait HasKind {
