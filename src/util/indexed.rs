@@ -46,7 +46,7 @@ mod test {
         let mut indexed = Indexed::new();
         assert!(0 == indexed.store("foo".to_string()));
         assert!(0 == indexed.store("foo".to_string()));
-        assert!("foo".to_string() == *indexed.get(0));
+        assert!("foo" == *indexed.get(0));
 
         assert!(1 == indexed.store("baz".to_string()));
         assert!(2 == indexed.store("zap".to_string()));
