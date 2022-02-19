@@ -285,101 +285,6 @@ impl ParsedPackage {
 	    file.add_import_edges(self.package_name.as_str(), graph);
         }
     }
-
-    fn first_pass(&self) -> Result<()> {
-	// TODO: Also check whole-module properties, e.g. that two files don't declare the same
-	// name, or that one file imports a name that the other declares.
-	// First pass should also resolve imported names to their final (fully-qualified?) name, and
-	// return the updated structures. The type inference pass should be able to pick out the
-	// already-resolved types for the imported names.
-	for file in self.files.iter() {
-	    first_pass::check(&file.syntax)?;
-	}
-	Ok(())
-    }
-
-    fn check_declared_names(&self) -> Result<()> {
-        let allowed_to_skip_package_decl = self.package_name == "main";
-
-        let expected_name = self.package_name.split('.').last().unwrap();
-
-	let mut declared_names = HashMap::new();
-	let mut result = Ok(());
-
-        for file in self.files.iter() {
-	    let syntax = &file.syntax;
-	    let filename = &syntax.filename;
-            let first_decl = if let Some(decl) = syntax.declarations.get(0) {
-                decl
-            } else {
-                // ignore empty files
-                continue;
-            };
-
-            if let ast::Declaration::PackageDecl(name) = first_decl {
-                if *name != expected_name {
-                    eprintln!(
-                        "file {} should declare package {} but declares package {} instead",
-                        syntax.filename, expected_name, name
-                    );
-		    bail!("wrong package error");
-                }
-            } else if !allowed_to_skip_package_decl {
-                eprintln!(
-                    "file {} should declare package {} but doesn't",
-                    syntax.filename, expected_name
-                );
-		bail!("no package error");
-            }
-
-	    for declaration in syntax.declarations.iter() {
-		use ast::Declaration::*;
-
-		let declared_name = match declaration {
-		    PackageDecl(_) => None,
-		    ImportDecl(name_parts) => {
-			// TODO: It's OK for both files to import the same name. It just can't be
-			// imported twice in one file, nor overlap with the name of something
-			// declared in any file in the module.
-			let imported_name = name_parts.last().unwrap().clone();
-			Some(imported_name)
-		    },
-		    TypeDecl(defined_type, _definition) => {
-			let t = syntax.get_type(*defined_type);
-
-			use ast::Type::*;
-
-			let declared_name = match t {
-			    TypeName(name) => name.clone(),
-			    Generic(name, _) => name.clone(),
-			    _ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
-			};
-			Some(declared_name)
-		    },
-		    FunctionDecl(func_decl) => {
-			Some(func_decl.name.clone())
-		    },
-		    InstanceDecl(_inst_decl) => {
-			None // TODO deal with duplicate instance declarations later
-		    },
-		    DeclarationParseError => {
-			panic!("Compiler error: Saw a DeclarationParseError");
-		    },
-		};
-
-		if let Some(name) = declared_name {
-		    if let Some(file) = declared_names.get(&name) {
-			eprintln!("duplicate declaration of {} in {} and {}", name, file, filename);
-			result = Err(anyhow!("duplicate declaration of {}", name));
-		    } else {
-			declared_names.insert(name, filename.clone());
-		    }
-		}
-	    }
-        }
-
-        result
-    }
 }
 
 impl ParsedFile {
@@ -404,9 +309,7 @@ impl Ordered {
 	    // In theory, the packages within a group could be processed in parallel since they have
 	    // no interdependencies
 	    for package in group.iter() {
-		// TODO: Should this be part of first pass?
-		package.check_declared_names()?;
-		package.first_pass()?;
+		first_pass::check(package)?;
 	    }
 	}
 	Ok(Checked{package_groups: self.package_groups})
