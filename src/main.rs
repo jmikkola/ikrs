@@ -9,6 +9,7 @@ mod args;
 mod compiler;
 #[allow(dead_code)]
 mod inference;
+mod package;
 mod parser;
 mod util;
 

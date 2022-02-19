@@ -11,6 +11,8 @@ use super::parser::ast;
 use super::parser::parser::parse;
 use super::parser::tokenize::{tokenize, Tokens};
 use super::util::graph::Graph;
+use super::inference;
+use super::package::{ParsedPackage, ParsedFile, TypedPackage};
 
 // submodules
 pub mod first_pass;
@@ -35,10 +37,11 @@ pub fn compile(paths: Vec<String>, base_path: &str, args: &Args) -> Result<()> {
     }
 
     let ordered_packages = parsed_packages.check_import_order()?;
-    let _checked_packages = ordered_packages.check_modules()?;
-    // Now something like let typed_packages = checked_packages.infer_types()?;
-    // lower
-    // codegen
+    let checked_packages = ordered_packages.check_modules()?;
+    let _typed_packages = checked_packages.infer_types()?;
+    // later:
+    // - lower
+    // - codegen
 
     Ok(())
 }
@@ -224,17 +227,6 @@ fn parse_with_errors(file_path: &str, file: &str, tokens: &Tokens) -> Result<ast
 struct Parsed {
     packages: Vec<ParsedPackage>,
 }
-
-struct ParsedPackage  {
-    package_name: String,
-    files: Vec<ParsedFile>,
-}
-
-struct ParsedFile {
-    // name: String,
-    syntax: ast::Syntax,
-}
-
 
 impl Parsed {
     fn check_import_order(self) -> Result<Ordered> {
@@ -422,9 +414,25 @@ impl Ordered {
 }
 
 struct Checked {
-    #[allow(dead_code)]
     package_groups: Vec<Vec<ParsedPackage>>,
 }
 
 impl Checked {
+    fn infer_types(self) -> Result<TypeChecked> {
+	let mut package_groups = vec![];
+	let mut known_types = inference::KnownTypes::new();
+
+	for group in self.package_groups.iter() {
+	    let typed_package_group = inference::infer_package_group(group, &mut known_types)?;
+	    package_groups.push(typed_package_group);
+	}
+
+	Ok(TypeChecked{package_groups})
+    }
+}
+
+
+struct TypeChecked {
+    #[allow(dead_code)]
+    package_groups: Vec<Vec<TypedPackage>>,
 }

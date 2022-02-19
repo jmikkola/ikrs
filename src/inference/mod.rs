@@ -7,9 +7,28 @@ use anyhow::{bail, Result};
 use itertools::Itertools;
 
 use super::util::indexed::Indexed;
+use super::package::{ParsedPackage, TypedPackage};
 
 #[cfg(test)]
 mod test;
+
+pub struct KnownTypes {
+    // TODO
+}
+
+impl KnownTypes {
+    pub fn new() -> Self {
+	KnownTypes{}
+    }
+}
+
+#[allow(unused_variables)]
+pub fn infer_package_group(
+    group: &[ParsedPackage],
+    known_types: &mut KnownTypes,
+) -> Result<Vec<TypedPackage>> {
+    Ok(vec![]) // TODO
+}
 
 struct Inference {
     kinds: Indexed<Kind>,
