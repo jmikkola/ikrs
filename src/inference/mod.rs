@@ -6,6 +6,8 @@ use std::collections::HashSet;
 use anyhow::{bail, Result};
 use itertools::Itertools;
 
+use crate::parser::ast;
+
 use super::package::{ParsedPackage, TypedPackage};
 
 #[cfg(test)]
@@ -29,22 +31,65 @@ pub fn infer_package_group(
     Ok(vec![]) // TODO
 }
 
-struct Inference {
+trait InferType {
+    fn infer_type(&self, inference: &mut Inference, environment: &Environment) -> Result<InferResult>;
 }
 
+impl InferType for ast::Literal {
+    fn infer_type(&self, inference: &mut Inference, _environment: &Environment) -> Result<InferResult> {
+	use ast::Literal::*;
+	let result = match self {
+	    Integer(_) => {
+		let type_var = inference.new_type_variable(Kind::Star);
+		let t = type_var.to_type();
+		let num_pred = Predicate{
+		    class: "Num".into(),
+		    typ: t.clone(),
+		};
+		let preds = vec![num_pred];
+		InferResult{t, preds}
+	    },
+	    Float(_) => {
+		let preds = vec![];
+		let t = Type::Con("Float".into(), Kind::Star);
+		InferResult{t, preds}
+	    },
+	    String(_) => {
+		let preds = vec![];
+		let t = Type::Con("String".into(), Kind::Star);
+		InferResult{t, preds}
+	    },
+	};
+	Ok(result)
+    }
+}
 
-impl Inference {
-    fn new() -> Self {
+struct InferResult {
+    t: Type,
+    preds: Vec<Predicate>,
+}
+
+struct Environment {
+    // TODO: Bindings
+}
+
+struct Inference<'a> {
+    syntax: &'a ast::Syntax,
+    n_type_variables_used: u64,
+}
+
+impl<'a> Inference<'a> {
+    fn new(syntax: &'a ast::Syntax) -> Self {
         Inference {
+	    syntax,
+	    n_type_variables_used: 0,
         }
     }
 
-    pub fn star_kind(&self) -> Kind {
-	Kind::Star
-    }
-
-    pub fn apply_kinds(&mut self, left: &Kind, right: &Kind) -> Kind {
-	Kind::App(Box::new(left.clone()), Box::new(right.clone()))
+    fn new_type_variable(&mut self, kind: Kind) -> TypeVar {
+	self.n_type_variables_used += 1;
+	let name = format!("tv_{}", self.n_type_variables_used);
+	TypeVar{name, kind}
     }
 
     fn most_general_unifier(&mut self, a: &Type, b: &Type) -> Result<Substitution> {
@@ -139,6 +184,12 @@ enum Type {
 struct TypeVar {
     name: String,
     kind: Kind,
+}
+
+impl TypeVar {
+    fn to_type(self) -> Type {
+	Type::Var(self.name, self.kind)
+    }
 }
 
 #[derive(Debug, PartialEq)]
