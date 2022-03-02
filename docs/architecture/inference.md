@@ -27,6 +27,11 @@ added.
   on. This means that the result value should also contain a list of these errors.
 
 
+I'd like to be able to do this without needing to rewrite names in the AST. It might work to pass in
+a mapping from imported name to fully-qualified name. This would assume that one name can't mean two
+different things in two files of one module. That seems like a reasonable restriction to apply.
+
+
 ## Questions
 
 **How should it return the methods inside of type classes?**
@@ -82,7 +87,6 @@ pub fn typecheck(
 ```rust
 struct TypeResult {
 	declared_classes: HashMap<FullyQualifiedName, ClassDefinition>,
-	indexed_types: Indexed<Type>,
 	modules: Vec<ModuleResult>,
 }
 
@@ -116,7 +120,6 @@ reference imported names instead of local ones.
 struct InferenceState {
 	global_names: HashMap<FullyQualifiedName, Scheme>,
 	declared_classes: HashMap<FullyQualifiedName, ClassDefinition>,
-	indexed_types: Indexed<Type>,
 }
 
 struct ClassDefinition {
@@ -140,6 +143,26 @@ pub fn infer(
 struct InferenceResult {
     function_types: HashMap<String, Scheme>,
     files: Vec<FileResult>,
+	errors: Vec<TypeError>,
+}
+
+struct TypeError {
+    locations: Vec<Reference>,
+	error: CompileError,
+	message: Option<String>,
+}
+
+enum Reference {
+	E(ExpressionRef),
+	D(DeclarationRef),
+	T(TypeRef),
+}
+
+enum CompileError {
+    InfiniteType,
+	NoMatchingClass,
+	MismatchedTypes,
+	...
 }
 
 struct FileResult {
