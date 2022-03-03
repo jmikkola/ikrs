@@ -30,6 +30,9 @@ struct DeclaredNamesCheck {
     expected_name: String,
     allowed_to_skip_package_decl: bool,
     declared_names: HashMap<String, String>,
+    imported_names: HashSet<String>,
+    imported_names_by_file: HashSet<(String, String)>,
+    imported_name_to_fqn_and_file: HashMap<String, (String, String)>,
     errors: Vec<Error>,
 }
 
@@ -39,6 +42,9 @@ fn check_declared_names(package: &ParsedPackage) -> Result<()> {
 	expected_name: package.package_name.split('.').last().unwrap().into(),
 	allowed_to_skip_package_decl: package.package_name == "main",
 	declared_names: HashMap::new(),
+	imported_names: HashSet::new(),
+	imported_names_by_file: HashSet::new(),
+	imported_name_to_fqn_and_file: HashMap::new(),
 	errors: Vec::new(),
     };
 
@@ -57,19 +63,14 @@ fn check_declared_names(package: &ParsedPackage) -> Result<()> {
 impl DeclaredNamesCheck {
     fn check_file_declared_names(&mut self, file: &ParsedFile) {
 	let syntax = &file.syntax;
-	let filename = &syntax.filename;
 
 	for declaration in syntax.declarations.iter() {
 	    use ast::Declaration::*;
 
-	    let declared_name = match declaration {
-		PackageDecl(_) => None,
+	    match declaration {
+		PackageDecl(_) => {},
 		ImportDecl(name_parts) => {
-		    // TODO: It's OK for both files to import the same name. It just can't be
-		    // imported twice in one file, nor overlap with the name of something
-		    // declared in any file in the module.
-		    let imported_name = name_parts.last().unwrap().clone();
-		    Some(imported_name)
+		    self.add_imported_name(file, name_parts);
 		},
 		TypeDecl(defined_type, _definition) => {
 		    let t = syntax.get_type(*defined_type);
@@ -81,28 +82,65 @@ impl DeclaredNamesCheck {
 			Generic(name, _) => name.clone(),
 			_ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
 		    };
-		    Some(declared_name)
+		    self.add_declared_name(file, declared_name);
 		},
 		FunctionDecl(func_decl) => {
-		    Some(func_decl.name.clone())
+		    self.add_declared_name(file, func_decl.name.clone());
 		},
 		InstanceDecl(_inst_decl) => {
-		    None // TODO deal with duplicate instance declarations later
+		    // TODO deal with duplicate instance declarations later
 		},
 		DeclarationParseError => {
 		    panic!("Compiler error: Saw a DeclarationParseError");
 		},
-	    };
-
-	    if let Some(name) = declared_name {
-		if let Some(file) = self.declared_names.get(&name) {
-		    eprintln!("duplicate declaration of {} in {} and {}", name, file, filename);
-		    self.errors.push(anyhow!("duplicate declaration of {}", name));
-		} else {
-		    self.declared_names.insert(name, filename.clone());
-		}
 	    }
 	}
+    }
+
+    fn add_imported_name(&mut self, file: &ParsedFile, name_parts: &[String]) {
+	let filename = file.filename();
+	let imported_name = name_parts.last().unwrap().clone();
+
+	self.imported_names.insert(imported_name.clone());
+
+	// you can't import the same name twice in one file
+	let key = (filename.clone(), imported_name.clone());
+	if self.imported_names_by_file.contains(&key) {
+	    eprintln!("the name {} is imported multiple times in {}", imported_name, filename);
+	    self.errors.push(anyhow!("duplicate import of {}", imported_name));
+	    return;
+	}
+	self.imported_names_by_file.insert(key);
+
+	// you can't import two different paths as the same name, even across different files in the
+	// module.
+	let fully_qualified_name: String = name_parts.to_vec().join(".");
+	let existing: Option<(String, String)> = self.imported_name_to_fqn_and_file.get(&imported_name).cloned();
+	if let Some((fqn, other_filename)) = existing {
+	    self.add_error(format!(
+		"{} already imported as {} in {}, cannot reimport {} in {}",
+		fqn, imported_name, other_filename, fully_qualified_name, filename,
+	    ));
+	    return;
+	}
+	self.imported_name_to_fqn_and_file.insert(imported_name, (fully_qualified_name, filename));
+    }
+
+    fn add_declared_name(&mut self, file: &ParsedFile, name: String) {
+	if let Some(other_file) = self.declared_names.get(&name) {
+	    eprintln!("duplicate declaration of {} in {} and {}", name, other_file, file.filename());
+	    self.errors.push(anyhow!("duplicate declaration of {}", name));
+	} else if self.imported_names.contains(&name) {
+	    eprintln!("{} declarted in {} has the same name as an import", name, file.filename());
+	    self.errors.push(anyhow!("declaration of {} duplicates imported name", name));
+	} else {
+	    self.declared_names.insert(name, file.filename());
+	}
+    }
+
+    fn add_error(&mut self, message: String) {
+	eprintln!("{}", message);
+	self.errors.push(anyhow!("{}", message));
     }
 
     // Check that the package name is the expected value (if it is provided)

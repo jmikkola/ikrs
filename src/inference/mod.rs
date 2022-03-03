@@ -187,8 +187,8 @@ struct TypeVar {
 }
 
 impl TypeVar {
-    fn to_type(self) -> Type {
-	Type::Var(self.name, self.kind)
+    fn to_type(&self) -> Type {
+	Type::Var(self.name.clone(), self.kind.clone())
     }
 }
 

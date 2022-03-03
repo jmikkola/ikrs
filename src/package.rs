@@ -11,6 +11,12 @@ pub struct ParsedFile {
     pub syntax: ast::Syntax,
 }
 
+impl ParsedFile {
+    pub fn filename(&self) -> String {
+	self.syntax.filename.clone()
+    }
+}
+
 pub struct TypedPackage {
     // TODO
 }
