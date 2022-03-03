@@ -55,28 +55,8 @@ fn check_file_declared_names(
 ) {
     let syntax = &file.syntax;
     let filename = &syntax.filename;
-    let first_decl = if let Some(decl) = syntax.declarations.get(0) {
-        decl
-    } else {
-        // ignore empty files
-	return;
-    };
 
-    if let ast::Declaration::PackageDecl(name) = first_decl {
-        if *name != expected_name {
-            eprintln!(
-                "file {} should declare package {} but declares package {} instead",
-                syntax.filename, expected_name, name
-            );
-	    errors.push(anyhow!("wrong package"));
-        }
-    } else if !allowed_to_skip_package_decl {
-        eprintln!(
-            "file {} should declare package {} but doesn't",
-            syntax.filename, expected_name
-        );
-	errors.push(anyhow!("no package"));
-    }
+    check_package_decl(file, expected_name, allowed_to_skip_package_decl, errors);
 
     for declaration in syntax.declarations.iter() {
 	use ast::Declaration::*;
@@ -121,6 +101,38 @@ fn check_file_declared_names(
 		declared_names.insert(name, filename.clone());
 	    }
 	}
+    }
+}
+
+// Check that the package name is the expected value (if it is provided)
+// or when not provided, make sure that is allowed.
+fn check_package_decl(
+    file: &ParsedFile,
+    expected_name: &str,
+    allowed_to_skip_package_decl: bool,
+    errors: &mut Vec<Error>,
+) {
+    let first_decl = if let Some(decl) = file.syntax.declarations.get(0) {
+        decl
+    } else {
+        // ignore empty files
+	return;
+    };
+
+    if let ast::Declaration::PackageDecl(name) = first_decl {
+        if *name != expected_name {
+            eprintln!(
+                "file {} should declare package {} but declares package {} instead",
+                file.syntax.filename, expected_name, name
+            );
+	    errors.push(anyhow!("wrong package"));
+        }
+    } else if !allowed_to_skip_package_decl {
+        eprintln!(
+            "file {} should declare package {} but doesn't",
+            file.syntax.filename, expected_name
+        );
+	errors.push(anyhow!("no package"));
     }
 }
 
