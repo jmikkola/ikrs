@@ -490,11 +490,7 @@ mod test {
     use regex::Regex;
 
     use super::*;
-    use crate::parser::test_helper::{tokenize_and_parse, tokenize_and_parse_with_name};
-
-    fn must_parse(file: &str) -> ast::Syntax {
-        tokenize_and_parse(file).expect("cannot parse example in test")
-    }
+    use crate::parser::test_helper::tokenize_and_parse_with_name;
 
     fn parse_nth_file(n: usize,  file: &str) -> ast::Syntax {
 	let name = format!("file_{}.ikko", n);
@@ -512,18 +508,6 @@ mod test {
 	    Ok(_) => None,
 	    Err(err) => Some(format!("{}", err)),
 	}
-    }
-
-    fn get_syntax_errors(file: &str) -> Vec<String> {
-        let syntax = must_parse(file);
-        let mut state = CheckState::new(&syntax);
-        state.check_syntax();
-        state.errors
-    }
-
-    fn errors_match(errors: &[String], pattern: &str) -> bool {
-        let re = Regex::new(pattern).unwrap();
-	errors.iter().any(|e| re.is_match(e))
     }
 
     fn error_matches(error: &str, pattern: &str) -> bool {
@@ -546,20 +530,6 @@ mod test {
 		message, error_pattern,
 	    ),
 	}
-    }
-
-    fn expect_syntax_ok(file: &str) {
-        assert!(get_syntax_errors(file).is_empty());
-    }
-
-    fn expect_syntax_has_error(file: &str, pattern: &str) {
-        let errors = get_syntax_errors(file);
-        assert!(
-            errors_match(&errors, pattern),
-            "expected errors {:?} to match pattern {}",
-            errors,
-            pattern
-        );
     }
 
     #[test]
@@ -587,8 +557,9 @@ package foo
 import a
 package foo
 "#;
-        expect_syntax_has_error(
-            file,
+        expect_package_has_error(
+            "main",
+	    &[file],
             r"package declaration must be the first declaration in the file",
         );
     }
@@ -601,7 +572,7 @@ import a.b
 import b.c
 import bc
 "#;
-        expect_syntax_ok(file);
+        expect_package_ok("main", &[file]);
     }
 
     #[test]
@@ -610,7 +581,7 @@ import bc
 import a.b.c
 import a.b.c
 "#;
-        expect_syntax_has_error(file, r"duplicate import");
+        expect_package_has_error("main", &[file], r"duplicate import");
     }
 
     #[test]
@@ -656,8 +627,9 @@ fn foo():
   return
 import b
 "#;
-        expect_syntax_has_error(
-            file,
+        expect_package_has_error(
+	    "main",
+            &[file],
             r"import statement must be above other declarations: import b",
         );
     }
@@ -668,7 +640,7 @@ import b
 type Length Int
 type Name String
 "#;
-        expect_syntax_ok(file);
+        expect_package_ok("main", &[file]);
     }
 
     #[test]
@@ -677,7 +649,7 @@ type Name String
 type Length Int
 type Length Int
 "#;
-        expect_syntax_has_error(file, r"duplicate type declaration: Length");
+        expect_package_has_error("main", &[file], r"duplicate declaration of Length");
     }
 
     #[test]
@@ -686,7 +658,7 @@ type Length Int
 type B A
 type A Int
 "#;
-        expect_syntax_ok(file);
+        expect_package_ok("main", &[file]);
     }
 
     #[test]
@@ -695,7 +667,7 @@ type A Int
 type A Int
 type B C
 "#;
-        expect_syntax_has_error(file, r"undefined type: C");
+        expect_package_has_error("main", &[file], r"undefined type: C");
     }
 
     #[test]
@@ -706,7 +678,7 @@ type B<t> struct:
   a A
 type A Int
 "#;
-        expect_syntax_ok(file);
+        expect_package_ok("main", &[file]);
     }
 
     #[test]
@@ -716,7 +688,7 @@ type B struct:
   value Int
   next B
 "#;
-        expect_syntax_ok(file);
+        expect_package_ok("main", &[file]);
     }
 
     #[test]
@@ -725,7 +697,7 @@ type B struct:
 type A struct:
   foo C
 "#;
-        expect_syntax_has_error(file, r"undefined type: C");
+        expect_package_has_error("main", &[file], r"undefined type: C");
     }
 
     #[test]
@@ -734,7 +706,7 @@ type A struct:
 type A struct:
   foo fn(C) Int
 "#;
-        expect_syntax_has_error(file, r"undefined type: C");
+        expect_package_has_error("main", &[file], r"undefined type: C");
     }
 
     #[test]
@@ -746,7 +718,7 @@ type A enum:
   Right:
     y C
 "#;
-        expect_syntax_has_error(file, r"undefined type: C");
+        expect_package_has_error("main", &[file], r"undefined type: C");
     }
 
     #[test]
@@ -754,7 +726,7 @@ type A enum:
         let file = r#"
 type String Int
 "#;
-        expect_syntax_has_error(file, r"cannot redefine builtin type String");
+        expect_package_has_error("main", &[file], r"cannot redefine builtin type String");
     }
 
     // TODO
@@ -763,6 +735,6 @@ type String Int
     //         let file = r#"
     // type A A
     // "#;
-    //         expect_syntax_has_error(file, r"self-referential type alias");
+    //         expect_package_has_error("main", &[file], r"self-referential type alias");
     //     }
 }

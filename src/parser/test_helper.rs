@@ -2,6 +2,7 @@ use super::ast;
 use super::parser::parse;
 use super::tokenize::tokenize;
 
+#[allow(dead_code)]
 pub fn tokenize_and_parse(text: &str) -> Option<ast::Syntax> {
     tokenize_and_parse_with_name(text, "test")
 }
