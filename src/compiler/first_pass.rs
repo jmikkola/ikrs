@@ -26,115 +26,113 @@ pub fn check(package: &ParsedPackage) -> Result<()> {
     Ok(())
 }
 
+struct DeclaredNamesCheck {
+    expected_name: String,
+    allowed_to_skip_package_decl: bool,
+    declared_names: HashMap<String, String>,
+    errors: Vec<Error>,
+}
+
 
 fn check_declared_names(package: &ParsedPackage) -> Result<()> {
-    let allowed_to_skip_package_decl = package.package_name == "main";
-
-    let expected_name = package.package_name.split('.').last().unwrap();
-
-    let mut declared_names = HashMap::new();
-    let mut errors = Vec::new();
+    let mut check = DeclaredNamesCheck{
+	expected_name: package.package_name.split('.').last().unwrap().into(),
+	allowed_to_skip_package_decl: package.package_name == "main",
+	declared_names: HashMap::new(),
+	errors: Vec::new(),
+    };
 
     for file in package.files.iter() {
-	check_file_declared_names(file, expected_name, allowed_to_skip_package_decl, &mut declared_names, &mut errors);
+	check.check_package_decl(file);
+	check.check_file_declared_names(file);
     }
 
-    if errors.is_empty() {
+    if check.errors.is_empty() {
 	Ok(())
     } else {
-	Err(errors.remove(0))
+	Err(check.errors.remove(0))
     }
 }
 
-fn check_file_declared_names(
-    file: &ParsedFile,
-    expected_name: &str,
-    allowed_to_skip_package_decl: bool,
-    declared_names: &mut HashMap<String, String>,
-    errors: &mut Vec<Error>,
-) {
-    let syntax = &file.syntax;
-    let filename = &syntax.filename;
+impl DeclaredNamesCheck {
+    fn check_file_declared_names(&mut self, file: &ParsedFile) {
+	let syntax = &file.syntax;
+	let filename = &syntax.filename;
 
-    check_package_decl(file, expected_name, allowed_to_skip_package_decl, errors);
+	for declaration in syntax.declarations.iter() {
+	    use ast::Declaration::*;
 
-    for declaration in syntax.declarations.iter() {
-	use ast::Declaration::*;
+	    let declared_name = match declaration {
+		PackageDecl(_) => None,
+		ImportDecl(name_parts) => {
+		    // TODO: It's OK for both files to import the same name. It just can't be
+		    // imported twice in one file, nor overlap with the name of something
+		    // declared in any file in the module.
+		    let imported_name = name_parts.last().unwrap().clone();
+		    Some(imported_name)
+		},
+		TypeDecl(defined_type, _definition) => {
+		    let t = syntax.get_type(*defined_type);
 
-	let declared_name = match declaration {
-	    PackageDecl(_) => None,
-	    ImportDecl(name_parts) => {
-		// TODO: It's OK for both files to import the same name. It just can't be
-		// imported twice in one file, nor overlap with the name of something
-		// declared in any file in the module.
-		let imported_name = name_parts.last().unwrap().clone();
-		Some(imported_name)
-	    },
-	    TypeDecl(defined_type, _definition) => {
-		let t = syntax.get_type(*defined_type);
+		    use ast::Type::*;
 
-		use ast::Type::*;
+		    let declared_name = match t {
+			TypeName(name) => name.clone(),
+			Generic(name, _) => name.clone(),
+			_ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
+		    };
+		    Some(declared_name)
+		},
+		FunctionDecl(func_decl) => {
+		    Some(func_decl.name.clone())
+		},
+		InstanceDecl(_inst_decl) => {
+		    None // TODO deal with duplicate instance declarations later
+		},
+		DeclarationParseError => {
+		    panic!("Compiler error: Saw a DeclarationParseError");
+		},
+	    };
 
-		let declared_name = match t {
-		    TypeName(name) => name.clone(),
-		    Generic(name, _) => name.clone(),
-		    _ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
-		};
-		Some(declared_name)
-	    },
-	    FunctionDecl(func_decl) => {
-		Some(func_decl.name.clone())
-	    },
-	    InstanceDecl(_inst_decl) => {
-		None // TODO deal with duplicate instance declarations later
-	    },
-	    DeclarationParseError => {
-		panic!("Compiler error: Saw a DeclarationParseError");
-	    },
+	    if let Some(name) = declared_name {
+		if let Some(file) = self.declared_names.get(&name) {
+		    eprintln!("duplicate declaration of {} in {} and {}", name, file, filename);
+		    self.errors.push(anyhow!("duplicate declaration of {}", name));
+		} else {
+		    self.declared_names.insert(name, filename.clone());
+		}
+	    }
+	}
+    }
+
+    // Check that the package name is the expected value (if it is provided)
+    // or when not provided, make sure that is allowed.
+    fn check_package_decl(&mut self, file: &ParsedFile) {
+	let first_decl = if let Some(decl) = file.syntax.declarations.get(0) {
+            decl
+	} else {
+            // ignore empty files
+	    return;
 	};
 
-	if let Some(name) = declared_name {
-	    if let Some(file) = declared_names.get(&name) {
-		eprintln!("duplicate declaration of {} in {} and {}", name, file, filename);
-		errors.push(anyhow!("duplicate declaration of {}", name));
-	    } else {
-		declared_names.insert(name, filename.clone());
-	    }
+	if let ast::Declaration::PackageDecl(name) = first_decl {
+            if *name != self.expected_name {
+		eprintln!(
+                    "file {} should declare package {} but declares package {} instead",
+                    file.syntax.filename, self.expected_name, name
+		);
+		self.errors.push(anyhow!("wrong package"));
+            }
+	} else if !self.allowed_to_skip_package_decl {
+            eprintln!(
+		"file {} should declare package {} but doesn't",
+		file.syntax.filename, self.expected_name
+            );
+	    self.errors.push(anyhow!("no package"));
 	}
     }
 }
 
-// Check that the package name is the expected value (if it is provided)
-// or when not provided, make sure that is allowed.
-fn check_package_decl(
-    file: &ParsedFile,
-    expected_name: &str,
-    allowed_to_skip_package_decl: bool,
-    errors: &mut Vec<Error>,
-) {
-    let first_decl = if let Some(decl) = file.syntax.declarations.get(0) {
-        decl
-    } else {
-        // ignore empty files
-	return;
-    };
-
-    if let ast::Declaration::PackageDecl(name) = first_decl {
-        if *name != expected_name {
-            eprintln!(
-                "file {} should declare package {} but declares package {} instead",
-                file.syntax.filename, expected_name, name
-            );
-	    errors.push(anyhow!("wrong package"));
-        }
-    } else if !allowed_to_skip_package_decl {
-        eprintln!(
-            "file {} should declare package {} but doesn't",
-            file.syntax.filename, expected_name
-        );
-	errors.push(anyhow!("no package"));
-    }
-}
 
 // This performs several checks prior to type inference:
 // - Declarations in a module declare unique names
