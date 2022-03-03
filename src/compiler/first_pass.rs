@@ -4,8 +4,9 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result, Error};
 
+use crate::package::ParsedFile;
 use crate::package::ParsedPackage;
 
 use super::super::parser::ast;
@@ -32,81 +33,95 @@ fn check_declared_names(package: &ParsedPackage) -> Result<()> {
     let expected_name = package.package_name.split('.').last().unwrap();
 
     let mut declared_names = HashMap::new();
-    let mut result = Ok(());
+    let mut errors = Vec::new();
 
     for file in package.files.iter() {
-	let syntax = &file.syntax;
-	let filename = &syntax.filename;
-        let first_decl = if let Some(decl) = syntax.declarations.get(0) {
-            decl
-        } else {
-            // ignore empty files
-            continue;
-        };
+	check_file_declared_names(file, expected_name, allowed_to_skip_package_decl, &mut declared_names, &mut errors);
+    }
 
-        if let ast::Declaration::PackageDecl(name) = first_decl {
-            if *name != expected_name {
-                eprintln!(
-                    "file {} should declare package {} but declares package {} instead",
-                    syntax.filename, expected_name, name
-                );
-		bail!("wrong package error");
-            }
-        } else if !allowed_to_skip_package_decl {
+    if errors.is_empty() {
+	Ok(())
+    } else {
+	Err(errors.remove(0))
+    }
+}
+
+fn check_file_declared_names(
+    file: &ParsedFile,
+    expected_name: &str,
+    allowed_to_skip_package_decl: bool,
+    declared_names: &mut HashMap<String, String>,
+    errors: &mut Vec<Error>,
+) {
+    let syntax = &file.syntax;
+    let filename = &syntax.filename;
+    let first_decl = if let Some(decl) = syntax.declarations.get(0) {
+        decl
+    } else {
+        // ignore empty files
+	return;
+    };
+
+    if let ast::Declaration::PackageDecl(name) = first_decl {
+        if *name != expected_name {
             eprintln!(
-                "file {} should declare package {} but doesn't",
-                syntax.filename, expected_name
+                "file {} should declare package {} but declares package {} instead",
+                syntax.filename, expected_name, name
             );
-	    bail!("no package error");
+	    errors.push(anyhow!("wrong package"));
         }
+    } else if !allowed_to_skip_package_decl {
+        eprintln!(
+            "file {} should declare package {} but doesn't",
+            syntax.filename, expected_name
+        );
+	errors.push(anyhow!("no package"));
+    }
 
-	for declaration in syntax.declarations.iter() {
-	    use ast::Declaration::*;
+    for declaration in syntax.declarations.iter() {
+	use ast::Declaration::*;
 
-	    let declared_name = match declaration {
-		PackageDecl(_) => None,
-		ImportDecl(name_parts) => {
-		    // TODO: It's OK for both files to import the same name. It just can't be
-		    // imported twice in one file, nor overlap with the name of something
-		    // declared in any file in the module.
-		    let imported_name = name_parts.last().unwrap().clone();
-		    Some(imported_name)
-		},
-		TypeDecl(defined_type, _definition) => {
-		    let t = syntax.get_type(*defined_type);
+	let declared_name = match declaration {
+	    PackageDecl(_) => None,
+	    ImportDecl(name_parts) => {
+		// TODO: It's OK for both files to import the same name. It just can't be
+		// imported twice in one file, nor overlap with the name of something
+		// declared in any file in the module.
+		let imported_name = name_parts.last().unwrap().clone();
+		Some(imported_name)
+	    },
+	    TypeDecl(defined_type, _definition) => {
+		let t = syntax.get_type(*defined_type);
 
-		    use ast::Type::*;
+		use ast::Type::*;
 
-		    let declared_name = match t {
-			TypeName(name) => name.clone(),
-			Generic(name, _) => name.clone(),
-			_ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
-		    };
-		    Some(declared_name)
-		},
-		FunctionDecl(func_decl) => {
-		    Some(func_decl.name.clone())
-		},
-		InstanceDecl(_inst_decl) => {
-		    None // TODO deal with duplicate instance declarations later
-		},
-		DeclarationParseError => {
-		    panic!("Compiler error: Saw a DeclarationParseError");
-		},
-	    };
+		let declared_name = match t {
+		    TypeName(name) => name.clone(),
+		    Generic(name, _) => name.clone(),
+		    _ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
+		};
+		Some(declared_name)
+	    },
+	    FunctionDecl(func_decl) => {
+		Some(func_decl.name.clone())
+	    },
+	    InstanceDecl(_inst_decl) => {
+		None // TODO deal with duplicate instance declarations later
+	    },
+	    DeclarationParseError => {
+		panic!("Compiler error: Saw a DeclarationParseError");
+	    },
+	};
 
-	    if let Some(name) = declared_name {
-		if let Some(file) = declared_names.get(&name) {
-		    eprintln!("duplicate declaration of {} in {} and {}", name, file, filename);
-		    result = Err(anyhow!("duplicate declaration of {}", name));
-		} else {
-		    declared_names.insert(name, filename.clone());
-		}
+	if let Some(name) = declared_name {
+	    if let Some(file) = declared_names.get(&name) {
+		eprintln!("duplicate declaration of {} in {} and {}", name, file, filename);
+		errors.push(anyhow!("duplicate declaration of {}", name));
+	    } else {
+		declared_names.insert(name, filename.clone());
 	    }
 	}
     }
-
-    result
 }
 
 // This performs several checks prior to type inference:
