@@ -31,7 +31,6 @@ struct DeclaredNamesCheck {
     errors: Vec<Error>,
 }
 
-
 fn check_declared_names(package: &ParsedPackage) -> Result<()> {
     let mut check = DeclaredNamesCheck{
 	expected_name: package.package_name.split('.').last().unwrap().into(),
@@ -112,12 +111,24 @@ impl DeclaredNamesCheck {
 	let fully_qualified_name: String = name_parts.to_vec().join(".");
 	let existing: Option<(String, String)> = self.imported_name_to_fqn_and_file.get(&imported_name).cloned();
 	if let Some((fqn, other_filename)) = existing {
-	    self.add_error(format!(
-		"{} already imported as {} in {}, cannot reimport {} in {}",
-		fqn, imported_name, other_filename, fully_qualified_name, filename,
-	    ));
-	    return;
+	    if fqn != fully_qualified_name {
+		self.add_error(format!(
+		    "{} already imported as {} in {}, cannot reimport {} in {}",
+		    fqn, imported_name, other_filename, fully_qualified_name, filename,
+		));
+		return;
+	    }
 	}
+
+	// you can't import a name that's the same as an existing declaration
+	if let Some(other_file) = self.declared_names.get(&imported_name) {
+	    let error = format!(
+		"{} declarted in {} has the same name as an import",
+		imported_name, other_file,
+	    );
+	    self.add_error(error);
+	}
+
 	self.imported_name_to_fqn_and_file.insert(imported_name, (fully_qualified_name, filename));
     }
 
@@ -126,8 +137,8 @@ impl DeclaredNamesCheck {
 	    eprintln!("duplicate declaration of {} in {} and {}", name, other_file, file.filename());
 	    self.errors.push(anyhow!("duplicate declaration of {}", name));
 	} else if self.imported_names.contains(&name) {
-	    eprintln!("{} declarted in {} has the same name as an import", name, file.filename());
-	    self.errors.push(anyhow!("declaration of {} duplicates imported name", name));
+	    let error = format!("{} declarted in {} has the same name as an import", name, file.filename());
+	    self.add_error(error);
 	} else {
 	    self.declared_names.insert(name, file.filename());
 	}
@@ -221,7 +232,7 @@ impl<'a> CheckState<'a> {
             println!("{}", error);
         }
 
-        Err(anyhow!("checks failed"))
+        Err(anyhow!("{}", self.errors.first().unwrap()))
     }
 
     fn check_syntax(&mut self) {
@@ -285,10 +296,10 @@ impl<'a> CheckState<'a> {
     fn check_package_location(&mut self) {
         if self.package_decl_set {
             self.add_error("duplicate package declaration");
-        }
-        if self.saw_first_decl {
+        } else if self.saw_first_decl {
             self.add_error("package declaration must be the first declaration in the file");
         }
+
         self.package_decl_set = true;
     }
 
@@ -479,13 +490,31 @@ mod test {
     use regex::Regex;
 
     use super::*;
-    use crate::parser::test_helper::tokenize_and_parse;
+    use crate::parser::test_helper::{tokenize_and_parse, tokenize_and_parse_with_name};
 
     fn must_parse(file: &str) -> ast::Syntax {
         tokenize_and_parse(file).expect("cannot parse example in test")
     }
 
-    fn get_errors(file: &str) -> Vec<String> {
+    fn parse_nth_file(n: usize,  file: &str) -> ast::Syntax {
+	let name = format!("file_{}.ikko", n);
+        tokenize_and_parse_with_name(file, &name).expect("cannot parse example in test")
+    }
+
+    fn get_error_from_check(package_name: &str, files: &[&str]) -> Option<String> {
+	let syntaxes = files.iter().enumerate().map(|(idx, file)| parse_nth_file(idx, *file));
+	let parsed_files = syntaxes.map(|syntax| ParsedFile{syntax}).collect();
+	let package = ParsedPackage{
+	    package_name: package_name.into(),
+	    files: parsed_files,
+	};
+	match check(&package) {
+	    Ok(_) => None,
+	    Err(err) => Some(format!("{}", err)),
+	}
+    }
+
+    fn get_syntax_errors(file: &str) -> Vec<String> {
         let syntax = must_parse(file);
         let mut state = CheckState::new(&syntax);
         state.check_syntax();
@@ -494,20 +523,37 @@ mod test {
 
     fn errors_match(errors: &[String], pattern: &str) -> bool {
         let re = Regex::new(pattern).unwrap();
-        for err in errors.iter() {
-            if re.is_match(err) {
-                return true;
-            }
-        }
-        false
+	errors.iter().any(|e| re.is_match(e))
     }
 
-    fn expect_ok(file: &str) {
-        assert!(get_errors(file).is_empty());
+    fn error_matches(error: &str, pattern: &str) -> bool {
+        let re = Regex::new(pattern).unwrap();
+	re.is_match(error)
     }
 
-    fn expect_has_error(file: &str, pattern: &str) {
-        let errors = get_errors(file);
+    fn expect_package_ok(package_name: &str, files: &[&str]) {
+	let error = get_error_from_check(package_name, files);
+	assert!(error.is_none(), "{:?}", error);
+    }
+
+    fn expect_package_has_error(package_name: &str, files: &[&str], error_pattern: &str) {
+	let error = get_error_from_check(package_name, files);
+	match error {
+	    None => panic!("expected an error, got none"),
+	    Some(message) => assert!(
+		error_matches(&message, error_pattern),
+		"expected error {:?} to match the pattern {}",
+		message, error_pattern,
+	    ),
+	}
+    }
+
+    fn expect_syntax_ok(file: &str) {
+        assert!(get_syntax_errors(file).is_empty());
+    }
+
+    fn expect_syntax_has_error(file: &str, pattern: &str) {
+        let errors = get_syntax_errors(file);
         assert!(
             errors_match(&errors, pattern),
             "expected errors {:?} to match pattern {}",
@@ -523,7 +569,7 @@ package foo
 
 import a.b
 "#;
-        expect_ok(file);
+	expect_package_ok("foo", &[file]);
     }
 
     #[test]
@@ -532,7 +578,7 @@ import a.b
 package foo
 package foo
 "#;
-        expect_has_error(file, r"duplicate package declaration");
+        expect_package_has_error("foo", &[file], r"duplicate package declaration");
     }
 
     #[test]
@@ -541,7 +587,7 @@ package foo
 import a
 package foo
 "#;
-        expect_has_error(
+        expect_syntax_has_error(
             file,
             r"package declaration must be the first declaration in the file",
         );
@@ -555,7 +601,7 @@ import a.b
 import b.c
 import bc
 "#;
-        expect_ok(file);
+        expect_syntax_ok(file);
     }
 
     #[test]
@@ -564,7 +610,42 @@ import bc
 import a.b.c
 import a.b.c
 "#;
-        expect_has_error(file, r"duplicate import");
+        expect_syntax_has_error(file, r"duplicate import");
+    }
+
+    #[test]
+    fn test_two_imports_using_the_same_name() {
+        let file = r#"
+import a.b.c
+import x.y.c
+"#;
+        expect_package_has_error("main", &[file], r"duplicate import");
+    }
+
+    #[test]
+    fn test_two_files_with_same_import() {
+	let file1 = "import a.b.c";
+	let file2 = "import a.b.c";
+	expect_package_ok("main", &[file1, file2]);
+    }
+
+    #[test]
+    fn test_two_files_with_conflicting_import() {
+	let file1 = "import a.b.c";
+	let file2 = "import x.y.c";
+	expect_package_has_error("main", &[file1, file2], r"already imported");
+    }
+
+    #[test]
+    fn test_two_files_with_conflict_between_import_and_declaration() {
+	let file1 = "import x.foo";
+	let file2 = r#"
+fn foo():
+  return
+"#;
+	// same result regardless of the order of the files
+	expect_package_has_error("main", &[file1, file2], "same name as an import");
+	expect_package_has_error("main", &[file2, file1], "same name as an import");
     }
 
     #[test]
@@ -575,7 +656,7 @@ fn foo():
   return
 import b
 "#;
-        expect_has_error(
+        expect_syntax_has_error(
             file,
             r"import statement must be above other declarations: import b",
         );
@@ -587,7 +668,7 @@ import b
 type Length Int
 type Name String
 "#;
-        expect_ok(file);
+        expect_syntax_ok(file);
     }
 
     #[test]
@@ -596,7 +677,7 @@ type Name String
 type Length Int
 type Length Int
 "#;
-        expect_has_error(file, r"duplicate type declaration: Length");
+        expect_syntax_has_error(file, r"duplicate type declaration: Length");
     }
 
     #[test]
@@ -605,7 +686,7 @@ type Length Int
 type B A
 type A Int
 "#;
-        expect_ok(file);
+        expect_syntax_ok(file);
     }
 
     #[test]
@@ -614,7 +695,7 @@ type A Int
 type A Int
 type B C
 "#;
-        expect_has_error(file, r"undefined type: C");
+        expect_syntax_has_error(file, r"undefined type: C");
     }
 
     #[test]
@@ -625,7 +706,7 @@ type B<t> struct:
   a A
 type A Int
 "#;
-        expect_ok(file);
+        expect_syntax_ok(file);
     }
 
     #[test]
@@ -635,7 +716,7 @@ type B struct:
   value Int
   next B
 "#;
-        expect_ok(file);
+        expect_syntax_ok(file);
     }
 
     #[test]
@@ -644,7 +725,7 @@ type B struct:
 type A struct:
   foo C
 "#;
-        expect_has_error(file, r"undefined type: C");
+        expect_syntax_has_error(file, r"undefined type: C");
     }
 
     #[test]
@@ -653,7 +734,7 @@ type A struct:
 type A struct:
   foo fn(C) Int
 "#;
-        expect_has_error(file, r"undefined type: C");
+        expect_syntax_has_error(file, r"undefined type: C");
     }
 
     #[test]
@@ -665,7 +746,7 @@ type A enum:
   Right:
     y C
 "#;
-        expect_has_error(file, r"undefined type: C");
+        expect_syntax_has_error(file, r"undefined type: C");
     }
 
     #[test]
@@ -673,7 +754,7 @@ type A enum:
         let file = r#"
 type String Int
 "#;
-        expect_has_error(file, r"cannot redefine builtin type String");
+        expect_syntax_has_error(file, r"cannot redefine builtin type String");
     }
 
     // TODO
@@ -682,6 +763,6 @@ type String Int
     //         let file = r#"
     // type A A
     // "#;
-    //         expect_has_error(file, r"self-referential type alias");
+    //         expect_syntax_has_error(file, r"self-referential type alias");
     //     }
 }

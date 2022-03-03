@@ -3,6 +3,10 @@ use super::parser::parse;
 use super::tokenize::tokenize;
 
 pub fn tokenize_and_parse(text: &str) -> Option<ast::Syntax> {
+    tokenize_and_parse_with_name(text, "test")
+}
+
+pub fn tokenize_and_parse_with_name(text: &str, filename: &str) -> Option<ast::Syntax> {
     let to_trim: &[_] = &[' ', '\n'];
     let trimmed = text.trim_start_matches(to_trim);
 
@@ -11,7 +15,7 @@ pub fn tokenize_and_parse(text: &str) -> Option<ast::Syntax> {
         return None;
     }
 
-    let syntax = parse("test", &tokens);
+    let syntax = parse(filename, &tokens);
     if syntax.has_errors() {
         return None;
     }
