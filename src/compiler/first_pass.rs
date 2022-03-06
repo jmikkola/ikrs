@@ -416,10 +416,38 @@ impl<'a> CheckState<'a> {
         // function names defined in the module, becuase the methods will be called with the
         // dot syntax (either value.method() or Type.method()), so it won't be ambiguous.
 
-        // TODO: Check argument types/constraints on the methods
+        for method in class_type.methods.iter() {
+            self.check_class_method(class_name, method);
+        }
+    }
+
+    fn check_class_method(&mut self, class_name: &str, method: &ast::ClassMethod) {
+        let method_type = self.syntax.get_type(method.ftype);
+        use ast::Type::*;
+
+        match method_type {
+            TypeParseError => {
+                panic!("should not see a parse error in first pass");
+            },
+            FnType(_) => {
+                // Self is a special type defined in class definitions that refers to the
+                // implementing type
+                let mut type_context = vec!["Self".to_string()];
+                self.ensure_type_is_defined_with_context(method.ftype, &mut type_context);
+                // TODO: Ensure no constraints are applied to the Self type
+            },
+            _ => {
+                panic!("invalid type stored for a class method on class {}: {:?}", class_name, method_type);
+            },
+        }
     }
 
     fn ensure_type_is_defined(&mut self, tref: ast::TypeRef) {
+        let mut type_context = Vec::new();
+        self.ensure_type_is_defined_with_context(tref, &mut type_context);
+    }
+
+    fn ensure_type_is_defined_with_context(&mut self, tref: ast::TypeRef, type_context: &mut Vec<String>) {
         use ast::Type::*;
 
         let typ = self.syntax.get_type(tref);
@@ -430,7 +458,7 @@ impl<'a> CheckState<'a> {
             }
             Void => {}
             TypeName(name) => {
-                if !self.is_type_defined(name) {
+                if !self.is_type_defined(name, type_context) {
                     let err = format!("undefined type: {}", name);
                     self.errors.push(err);
                 }
@@ -439,19 +467,19 @@ impl<'a> CheckState<'a> {
                 // TODO: Ensure type vars are in scope
             }
             Generic(name, trefs) => {
-                if !self.is_type_defined(name) {
+                if !self.is_type_defined(name, type_context) {
                     let err = format!("undefined type: {}", name);
                     self.errors.push(err);
                 }
                 for tref in trefs.iter() {
-                    self.ensure_type_is_defined(*tref);
+                    self.ensure_type_is_defined_with_context(*tref, type_context);
                 }
             }
             FnType(func_type) => {
                 for tref in func_type.arg_types.iter() {
-                    self.ensure_type_is_defined(*tref);
+                    self.ensure_type_is_defined_with_context(*tref, type_context);
                 }
-                self.ensure_type_is_defined(func_type.ret_type);
+                self.ensure_type_is_defined_with_context(func_type.ret_type, type_context);
                 // TODO: Ensure func_type.constraints are defined classes
             }
         }
@@ -461,8 +489,8 @@ impl<'a> CheckState<'a> {
         // TODO
     }
 
-    fn is_type_defined(&self, typ: &str) -> bool {
-        self.is_type_builtin(typ) || self.is_type_defined_in_module(typ)
+    fn is_type_defined(&self, typ: &str, type_context: &[String]) -> bool {
+        self.is_type_builtin(typ) || self.is_type_defined_in_module(typ) || type_context.contains(&typ.into())
     }
 
     fn is_type_defined_in_module(&self, typ: &str) -> bool {
@@ -753,6 +781,29 @@ type Shape class:
             "main", &[file],
             r"class Shape has multiple definitions of method area"
         );
+    }
+
+    #[test]
+    fn test_class_referencing_undefined_type() {
+        let file = r#"
+type Shape class:
+  fn color(Self) Color
+"#;
+        expect_package_has_error("main", &[file], r"undefined type: Color");
+    }
+
+    #[test]
+    fn test_class_referencing_type_defined_later() {
+        let file = r#"
+type Shape class:
+  fn color(Self) Color
+
+type Color enum:
+  Red
+  Blue
+  Green
+"#;
+        expect_package_ok("main", &[file]);
     }
 
     // TODO
