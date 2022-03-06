@@ -196,8 +196,6 @@ struct CheckState<'a> {
     syntax: &'a ast::Syntax,
     errors: Vec<String>,
 
-    // binding_names: HashSet<String>,
-    imports_used: HashSet<String>,
     types_declared: HashSet<String>,
 
     // Used to keep track of advancement through the allowed ordering of declarations
@@ -213,8 +211,6 @@ impl<'a> CheckState<'a> {
             syntax,
             errors: Vec::new(),
 
-            // binding_names: HashSet::new(),
-            imports_used: HashSet::new(),
             types_declared: HashSet::new(),
 
             package_decl_set: false,
@@ -274,8 +270,6 @@ impl<'a> CheckState<'a> {
             ImportDecl(names) => {
                 let import_name = names.join(".");
                 self.check_import_location(&import_name);
-		// TODO: Is this logic now duplicated?
-                self.check_import_duplication(import_name);
             }
             TypeDecl(tdecl, tdef) => {
                 self.saw_non_header_decl = true;
@@ -310,15 +304,6 @@ impl<'a> CheckState<'a> {
                 import_name
             );
             self.errors.push(err);
-        }
-    }
-
-    fn check_import_duplication(&mut self, import_name: String) {
-        if self.imports_used.contains(&import_name) {
-            let err = format!("duplicate import of {}", import_name);
-            self.errors.push(err);
-        } else {
-            self.imports_used.insert(import_name);
         }
     }
 
