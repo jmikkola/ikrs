@@ -13,7 +13,7 @@ pub struct ParsedFile {
 
 impl ParsedFile {
     pub fn filename(&self) -> String {
-	self.syntax.filename.clone()
+        self.syntax.filename.clone()
     }
 }
 

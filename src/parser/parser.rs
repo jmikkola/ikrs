@@ -1607,20 +1607,20 @@ impl<'a> Parser<'a> {
 
     fn make_error(&self, mut index: usize, message: &str) -> ParseError {
         index = index.min(self.tokens.len());
-	// assume that the caller has already consumed the token "causing" the error
-	if index > 0 {
-	    index -= 1;
-	}
+        // assume that the caller has already consumed the token "causing" the error
+        if index > 0 {
+            index -= 1;
+        }
 
-	let (token, location) = &self.tokens[index];
-	let size = token.first_line_length();
+        let (token, location) = &self.tokens[index];
+        let size = token.first_line_length();
 
-	let region = Region::for_word(*location, size);
-	let context = 0; // no additional lines
+        let region = Region::for_word(*location, size);
+        let context = 0; // no additional lines
 
-	ParseError{
-	    message: message.to_string(),
-	    location: region.to_display_selection(context),
-	}
+        ParseError{
+            message: message.to_string(),
+            location: region.to_display_selection(context),
+        }
     }
 }

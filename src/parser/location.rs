@@ -61,7 +61,7 @@ impl Location {
 
 impl std::fmt::Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "line {}, column {}", self.line + 1, self.col)
+        write!(f, "line {}, column {}", self.line + 1, self.col)
     }
 }
 
@@ -79,73 +79,73 @@ impl Ord for Location {
 
 impl Region {
     pub fn new(start: Location, end: Location) -> Self {
-	Region {start, end}
+        Region {start, end}
     }
 
     // this trusts you that you haven't specified a length that goes past the end of the line
     pub fn for_word(start: Location, length: usize) -> Self {
-	let end = Location{line: start.line, col: start.col + (length as u32)};
-	Region::new(start, end)
+        let end = Location{line: start.line, col: start.col + (length as u32)};
+        Region::new(start, end)
     }
 
     pub fn to_display_selection(self, context: u32) -> DisplaySelection {
-	DisplaySelection::new(self, context)
+        DisplaySelection::new(self, context)
     }
 }
 
 impl std::fmt::Display for Region {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "from {} to {}", self.start, self.end)
+        write!(f, "from {} to {}", self.start, self.end)
     }
 }
 
 impl DisplaySelection {
     pub fn new(highlight: Region, context: u32) -> Self {
-	DisplaySelection{highlight, context}
+        DisplaySelection{highlight, context}
     }
 
     pub fn render_selection(&self, file: &str) -> String {
-	let lines: Vec<String> = file.lines().map(|l| l.to_string()).collect();
+        let lines: Vec<String> = file.lines().map(|l| l.to_string()).collect();
 
-	let mut result = String::new();
+        let mut result = String::new();
 
-	// copy starting context
-	let start = self.highlight.start.line;
-	for line in (start - min(start, self.context))..start {
-	    result += lines[line as usize].as_str();
-	    result += "\n";
-	}
+        // copy starting context
+        let start = self.highlight.start.line;
+        for line in (start - min(start, self.context))..start {
+            result += lines[line as usize].as_str();
+            result += "\n";
+        }
 
-	// copy selected region and highlight it
-	let end = self.highlight.end.line;
-	for line in start..=end {
-	    result += lines[line as usize].as_str();
-	    result += "\n";
+        // copy selected region and highlight it
+        let end = self.highlight.end.line;
+        for line in start..=end {
+            result += lines[line as usize].as_str();
+            result += "\n";
 
-	    // Janky hack for now: assume that the highlight is on a single line
-	    for _ in 0..self.highlight.start.col {
-		result += " ";
-	    }
-	    for _ in self.highlight.start.col..self.highlight.end.col {
-		result += "^";
-	    }
-	    result += "\n";
-	}
+            // Janky hack for now: assume that the highlight is on a single line
+            for _ in 0..self.highlight.start.col {
+                result += " ";
+            }
+            for _ in self.highlight.start.col..self.highlight.end.col {
+                result += "^";
+            }
+            result += "\n";
+        }
 
-	// copy ending context
-	let last_line = min(end + self.context, lines.len() as u32 - 1);
-	for line in (end + 1)..=last_line {
-	    result += lines[line as usize].as_str();
-	    result += "\n";
-	}
+        // copy ending context
+        let last_line = min(end + self.context, lines.len() as u32 - 1);
+        for line in (end + 1)..=last_line {
+            result += lines[line as usize].as_str();
+            result += "\n";
+        }
 
-	result
+        result
     }
 }
 
 impl std::fmt::Display for DisplaySelection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "{}", self.highlight)
+        write!(f, "{}", self.highlight)
     }
 }
 
@@ -154,42 +154,42 @@ mod test {
     use super::*;
 
     const EXAMPLE_FILE: &str = r#"
-	fn main():
-	    let a = 1
-	    let b = 0
-	    while a < 200:
-		print(to_string(a))
-		print("\n")
-		let temp = a
-		a = a + b
-		b = temp
+        fn main():
+            let a = 1
+            let b = 0
+            while a < 200:
+                print(to_string(a))
+                print("\n")
+                let temp = a
+                a = a + b
+                b = temp
 "#;
 
     // Clean up leading newline
     fn trim(text: &str) -> &str {
-	let to_trim: &[_] = &['\n'];
-	text.trim_start_matches(to_trim)
+        let to_trim: &[_] = &['\n'];
+        text.trim_start_matches(to_trim)
     }
 
     #[test]
     fn test_render_selection_word() {
-	let start = Location{line: 3, col: 12};
-	let region = Region::for_word(start, 5);
-	let selection = region.to_display_selection(2);
+        let start = Location{line: 3, col: 12};
+        let region = Region::for_word(start, 5);
+        let selection = region.to_display_selection(2);
 
 
-	let result = selection.render_selection(trim(EXAMPLE_FILE));
+        let result = selection.render_selection(trim(EXAMPLE_FILE));
 
-	let expected = r#"
-	    let a = 1
-	    let b = 0
-	    while a < 200:
+        let expected = r#"
+            let a = 1
+            let b = 0
+            while a < 200:
             ^^^^^
-		print(to_string(a))
-		print("\n")
+                print(to_string(a))
+                print("\n")
 "#;
 
-	assert_eq!(trim(expected).to_string(), result);
+        assert_eq!(trim(expected).to_string(), result);
     }
 
     #[test]

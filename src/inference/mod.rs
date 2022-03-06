@@ -19,7 +19,7 @@ pub struct KnownTypes {
 
 impl KnownTypes {
     pub fn new() -> Self {
-	KnownTypes{}
+        KnownTypes{}
     }
 }
 
@@ -37,30 +37,30 @@ trait InferType {
 
 impl InferType for ast::Literal {
     fn infer_type(&self, inference: &mut Inference, _environment: &Environment) -> Result<InferResult> {
-	use ast::Literal::*;
-	let result = match self {
-	    Integer(_) => {
-		let type_var = inference.new_type_variable(Kind::Star);
-		let t = type_var.to_type();
-		let num_pred = Predicate{
-		    class: "Num".into(),
-		    typ: t.clone(),
-		};
-		let preds = vec![num_pred];
-		InferResult{t, preds}
-	    },
-	    Float(_) => {
-		let preds = vec![];
-		let t = Type::Con("Float".into(), Kind::Star);
-		InferResult{t, preds}
-	    },
-	    String(_) => {
-		let preds = vec![];
-		let t = Type::Con("String".into(), Kind::Star);
-		InferResult{t, preds}
-	    },
-	};
-	Ok(result)
+        use ast::Literal::*;
+        let result = match self {
+            Integer(_) => {
+                let type_var = inference.new_type_variable(Kind::Star);
+                let t = type_var.to_type();
+                let num_pred = Predicate{
+                    class: "Num".into(),
+                    typ: t.clone(),
+                };
+                let preds = vec![num_pred];
+                InferResult{t, preds}
+            },
+            Float(_) => {
+                let preds = vec![];
+                let t = Type::Con("Float".into(), Kind::Star);
+                InferResult{t, preds}
+            },
+            String(_) => {
+                let preds = vec![];
+                let t = Type::Con("String".into(), Kind::Star);
+                InferResult{t, preds}
+            },
+        };
+        Ok(result)
     }
 }
 
@@ -81,15 +81,15 @@ struct Inference<'a> {
 impl<'a> Inference<'a> {
     fn new(syntax: &'a ast::Syntax) -> Self {
         Inference {
-	    syntax,
-	    n_type_variables_used: 0,
+            syntax,
+            n_type_variables_used: 0,
         }
     }
 
     fn new_type_variable(&mut self, kind: Kind) -> TypeVar {
-	self.n_type_variables_used += 1;
-	let name = format!("tv_{}", self.n_type_variables_used);
-	TypeVar{name, kind}
+        self.n_type_variables_used += 1;
+        let name = format!("tv_{}", self.n_type_variables_used);
+        TypeVar{name, kind}
     }
 
     fn most_general_unifier(&mut self, a: &Type, b: &Type) -> Result<Substitution> {
@@ -122,46 +122,46 @@ impl<'a> Inference<'a> {
 
             _ =>
                 self.mismatch_error(a, b),
-	}
+        }
     }
 
     fn bind_variable(&mut self, name: &str, kind: &Kind, other: &Type) -> Result<Substitution> {
-	let typ = Type::Var(name.to_owned(), kind.clone());
-	if other == &typ {
-	    return Ok(Substitution::empty());
-	}
+        let typ = Type::Var(name.to_owned(), kind.clone());
+        if other == &typ {
+            return Ok(Substitution::empty());
+        }
 
-	let this_type = TypeVar{
-	    name: name.to_owned(),
-	    kind: kind.clone(),
-	};
-	if self.free_type_variables(other).contains(&this_type) {
-	    bail!("infinite type");
-	}
+        let this_type = TypeVar{
+            name: name.to_owned(),
+            kind: kind.clone(),
+        };
+        if self.free_type_variables(other).contains(&this_type) {
+            bail!("infinite type");
+        }
 
-	if kind != &other.kind() {
-	    bail!("kind mismatch");
-	}
+        if kind != &other.kind() {
+            bail!("kind mismatch");
+        }
 
-	Ok(Substitution::singleton(&typ, other))
+        Ok(Substitution::singleton(&typ, other))
     }
 
     fn free_type_variables(&mut self, typ: &Type) -> HashSet<TypeVar> {
-	let mut out = HashSet::new();
-	typ.free_type_vars(&mut out);
-	out
+        let mut out = HashSet::new();
+        typ.free_type_vars(&mut out);
+        out
     }
 
     fn mismatch_unless(&self, a: &Type, b: &Type, condition: bool) -> Result<Substitution> {
-	if condition {
-	    Ok(Substitution::empty())
-	} else {
-	    self.mismatch_error(a, b)
-	}
+        if condition {
+            Ok(Substitution::empty())
+        } else {
+            self.mismatch_error(a, b)
+        }
     }
 
     fn mismatch_error(&self, a: &Type, b: &Type) -> Result<Substitution> {
-	bail!("mismatch between types {:?} and {:?}", a, b);
+        bail!("mismatch between types {:?} and {:?}", a, b);
     }
 }
 
@@ -188,7 +188,7 @@ struct TypeVar {
 
 impl TypeVar {
     fn to_type(&self) -> Type {
-	Type::Var(self.name.clone(), self.kind.clone())
+        Type::Var(self.name.clone(), self.kind.clone())
     }
 }
 
@@ -264,7 +264,7 @@ impl Predicate {
     }
 
     fn in_head_normal_form(&self) -> bool {
-	self.typ.in_head_normal_form()
+        self.typ.in_head_normal_form()
     }
 }
 
@@ -310,10 +310,10 @@ impl Type {
         use Type::*;
 
         match self {
-	    Var(_, _) => true,
-	    App(l, _) => l.in_head_normal_form(),
-	    _ => false,
-	}
+            Var(_, _) => true,
+            App(l, _) => l.in_head_normal_form(),
+            _ => false,
+        }
     }
 }
 
@@ -367,9 +367,9 @@ impl ClassEnv {
     fn find_matching_instance(&self, class: &str, typ: &Type)
                               -> Option<Vec<Predicate>> {
         let p = Predicate{
-	    class: class.to_owned(),
-	    typ: typ.clone(),
-	};
+            class: class.to_owned(),
+            typ: typ.clone(),
+        };
 
         let instances = &self.classes.get(class).unwrap().instances;
         instances.iter().find_map(|inst| {
@@ -378,8 +378,8 @@ impl ClassEnv {
             inst.t.matches(&p)
                 // when the type matches, take that substitution and apply it to the predicates,
                 // then return those predicates
-		.map(|sub| inst.predicates.apply(&sub))
-	})
+                .map(|sub| inst.predicates.apply(&sub))
+        })
     }
 
     // Assuming all of `given` hold, does that imply that `p` also holds?
@@ -407,43 +407,43 @@ impl ClassEnv {
 
     // remove redundant predicates, e.g. [Eq a, Ord a, Ord a] --> [Ord a]
     fn simplify_predicates(&self, predicates: &[Predicate]) -> Vec<Predicate> {
-	let mut source: Vec<Predicate> = predicates.to_owned();
-	let mut keep = Vec::new();
+        let mut source: Vec<Predicate> = predicates.to_owned();
+        let mut keep = Vec::new();
 
-	while let Some(p) = source.pop() {
-	    let given = keep.iter().chain(source.iter()).cloned().collect_vec();
-	    if !self.entail(&given, &p) {
-		keep.push(p);
-	    }
-	}
+        while let Some(p) = source.pop() {
+            let given = keep.iter().chain(source.iter()).cloned().collect_vec();
+            if !self.entail(&given, &p) {
+                keep.push(p);
+            }
+        }
 
-	keep
+        keep
     }
 
     fn pred_to_head_normal_form(&self, predicate: &Predicate)
-				-> Result<Vec<Predicate>> {
-	// If it's already in HNF, there's no more work to do
-	if predicate.in_head_normal_form() {
-	    return Ok(vec![predicate.clone()]);
-	}
+                                -> Result<Vec<Predicate>> {
+        // If it's already in HNF, there's no more work to do
+        if predicate.in_head_normal_form() {
+            return Ok(vec![predicate.clone()]);
+        }
 
-	// Otherwise, there needs to be an instance for the concrete type.
-	match self.find_matching_instance(&predicate.class, &predicate.typ) {
-	    Some(new_predicates) =>
-		self.preds_to_head_normal_form(&new_predicates),
-	    None =>
-		bail!("context reduction failure"),
-	}
+        // Otherwise, there needs to be an instance for the concrete type.
+        match self.find_matching_instance(&predicate.class, &predicate.typ) {
+            Some(new_predicates) =>
+                self.preds_to_head_normal_form(&new_predicates),
+            None =>
+                bail!("context reduction failure"),
+        }
     }
 
     fn preds_to_head_normal_form(&self, predicates: &[Predicate])
-				 -> Result<Vec<Predicate>> {
-	let mut results = Vec::new();
-	for predicate in predicates.iter() {
-	    let new_predicates = self.pred_to_head_normal_form(predicate)?;
-	    results.extend(new_predicates.into_iter());
-	}
-	Ok(results)
+                                 -> Result<Vec<Predicate>> {
+        let mut results = Vec::new();
+        for predicate in predicates.iter() {
+            let new_predicates = self.pred_to_head_normal_form(predicate)?;
+            results.extend(new_predicates.into_iter());
+        }
+        Ok(results)
     }
 }
 
@@ -518,25 +518,25 @@ impl Types for Type {
 
 impl Types for Predicate {
     fn apply(&self, sub: &Substitution) -> Self {
-	Predicate{
-	    class: self.class.clone(),
-	    typ: self.typ.apply(sub),
-	}
+        Predicate{
+            class: self.class.clone(),
+            typ: self.typ.apply(sub),
+        }
     }
 
     fn free_type_vars(&self, out: &mut HashSet<TypeVar>) {
-	self.typ.free_type_vars(out);
+        self.typ.free_type_vars(out);
     }
 }
 
 impl<T> Types for Vec<T> where T: Types {
     fn apply(&self, sub: &Substitution) -> Self {
-	self.iter().map(|t| t.apply(sub)).collect()
+        self.iter().map(|t| t.apply(sub)).collect()
     }
 
     fn free_type_vars(&self, out: &mut HashSet<TypeVar>) {
-	for t in self.iter() {
-	    t.free_type_vars(out);
-	}
+        for t in self.iter() {
+            t.free_type_vars(out);
+        }
     }
 }

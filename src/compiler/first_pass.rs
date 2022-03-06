@@ -15,7 +15,7 @@ pub fn check(package: &ParsedPackage) -> Result<()> {
     check_declared_names(package)?;
 
     for file in package.files.iter() {
-	check_file(&file.syntax)?;
+        check_file(&file.syntax)?;
     }
 
     Ok(())
@@ -33,147 +33,147 @@ struct DeclaredNamesCheck {
 
 fn check_declared_names(package: &ParsedPackage) -> Result<()> {
     let mut check = DeclaredNamesCheck{
-	expected_name: package.package_name.split('.').last().unwrap().into(),
-	allowed_to_skip_package_decl: package.package_name == "main",
-	declared_names: HashMap::new(),
-	imported_names: HashSet::new(),
-	imported_names_by_file: HashSet::new(),
-	imported_name_to_fqn_and_file: HashMap::new(),
-	errors: Vec::new(),
+        expected_name: package.package_name.split('.').last().unwrap().into(),
+        allowed_to_skip_package_decl: package.package_name == "main",
+        declared_names: HashMap::new(),
+        imported_names: HashSet::new(),
+        imported_names_by_file: HashSet::new(),
+        imported_name_to_fqn_and_file: HashMap::new(),
+        errors: Vec::new(),
     };
 
     for file in package.files.iter() {
-	check.check_package_decl(file);
-	check.check_file_declared_names(file);
+        check.check_package_decl(file);
+        check.check_file_declared_names(file);
     }
 
     if check.errors.is_empty() {
-	Ok(())
+        Ok(())
     } else {
-	Err(check.errors.remove(0))
+        Err(check.errors.remove(0))
     }
 }
 
 impl DeclaredNamesCheck {
     fn check_file_declared_names(&mut self, file: &ParsedFile) {
-	let syntax = &file.syntax;
+        let syntax = &file.syntax;
 
-	for declaration in syntax.declarations.iter() {
-	    use ast::Declaration::*;
+        for declaration in syntax.declarations.iter() {
+            use ast::Declaration::*;
 
-	    match declaration {
-		PackageDecl(_) => {},
-		ImportDecl(name_parts) => {
-		    self.add_imported_name(file, name_parts);
-		},
-		TypeDecl(defined_type, _definition) => {
-		    let t = syntax.get_type(*defined_type);
+            match declaration {
+                PackageDecl(_) => {},
+                ImportDecl(name_parts) => {
+                    self.add_imported_name(file, name_parts);
+                },
+                TypeDecl(defined_type, _definition) => {
+                    let t = syntax.get_type(*defined_type);
 
-		    use ast::Type::*;
+                    use ast::Type::*;
 
-		    let declared_name = match t {
-			TypeName(name) => name.clone(),
-			Generic(name, _) => name.clone(),
-			_ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
-		    };
-		    self.add_declared_name(file, declared_name);
-		},
-		FunctionDecl(func_decl) => {
-		    self.add_declared_name(file, func_decl.name.clone());
-		},
-		InstanceDecl(_inst_decl) => {
-		    // TODO deal with duplicate instance declarations later
-		},
-		DeclarationParseError => {
-		    panic!("Compiler error: Saw a DeclarationParseError");
-		},
-	    }
-	}
+                    let declared_name = match t {
+                        TypeName(name) => name.clone(),
+                        Generic(name, _) => name.clone(),
+                        _ => panic!("Compiler error: invalid type for LHS of type declaration {:?}", t),
+                    };
+                    self.add_declared_name(file, declared_name);
+                },
+                FunctionDecl(func_decl) => {
+                    self.add_declared_name(file, func_decl.name.clone());
+                },
+                InstanceDecl(_inst_decl) => {
+                    // TODO deal with duplicate instance declarations later
+                },
+                DeclarationParseError => {
+                    panic!("Compiler error: Saw a DeclarationParseError");
+                },
+            }
+        }
     }
 
     fn add_imported_name(&mut self, file: &ParsedFile, name_parts: &[String]) {
-	let filename = file.filename();
-	let imported_name = name_parts.last().unwrap().clone();
+        let filename = file.filename();
+        let imported_name = name_parts.last().unwrap().clone();
 
-	self.imported_names.insert(imported_name.clone());
+        self.imported_names.insert(imported_name.clone());
 
-	// you can't import the same name twice in one file
-	let key = (filename.clone(), imported_name.clone());
-	if self.imported_names_by_file.contains(&key) {
-	    eprintln!("the name {} is imported multiple times in {}", imported_name, filename);
-	    self.errors.push(anyhow!("duplicate import of {}", imported_name));
-	    return;
-	}
-	self.imported_names_by_file.insert(key);
+        // you can't import the same name twice in one file
+        let key = (filename.clone(), imported_name.clone());
+        if self.imported_names_by_file.contains(&key) {
+            eprintln!("the name {} is imported multiple times in {}", imported_name, filename);
+            self.errors.push(anyhow!("duplicate import of {}", imported_name));
+            return;
+        }
+        self.imported_names_by_file.insert(key);
 
-	// you can't import two different paths as the same name, even across different files in the
-	// module.
-	let fully_qualified_name: String = name_parts.to_vec().join(".");
-	let existing: Option<(String, String)> = self.imported_name_to_fqn_and_file.get(&imported_name).cloned();
-	if let Some((fqn, other_filename)) = existing {
-	    if fqn != fully_qualified_name {
-		self.add_error(format!(
-		    "{} already imported as {} in {}, cannot reimport {} in {}",
-		    fqn, imported_name, other_filename, fully_qualified_name, filename,
-		));
-		return;
-	    }
-	}
+        // you can't import two different paths as the same name, even across different files in the
+        // module.
+        let fully_qualified_name: String = name_parts.to_vec().join(".");
+        let existing: Option<(String, String)> = self.imported_name_to_fqn_and_file.get(&imported_name).cloned();
+        if let Some((fqn, other_filename)) = existing {
+            if fqn != fully_qualified_name {
+                self.add_error(format!(
+                    "{} already imported as {} in {}, cannot reimport {} in {}",
+                    fqn, imported_name, other_filename, fully_qualified_name, filename,
+                ));
+                return;
+            }
+        }
 
-	// you can't import a name that's the same as an existing declaration
-	if let Some(other_file) = self.declared_names.get(&imported_name) {
-	    let error = format!(
-		"{} declarted in {} has the same name as an import",
-		imported_name, other_file,
-	    );
-	    self.add_error(error);
-	}
+        // you can't import a name that's the same as an existing declaration
+        if let Some(other_file) = self.declared_names.get(&imported_name) {
+            let error = format!(
+                "{} declarted in {} has the same name as an import",
+                imported_name, other_file,
+            );
+            self.add_error(error);
+        }
 
-	self.imported_name_to_fqn_and_file.insert(imported_name, (fully_qualified_name, filename));
+        self.imported_name_to_fqn_and_file.insert(imported_name, (fully_qualified_name, filename));
     }
 
     fn add_declared_name(&mut self, file: &ParsedFile, name: String) {
-	if let Some(other_file) = self.declared_names.get(&name) {
-	    eprintln!("duplicate declaration of {} in {} and {}", name, other_file, file.filename());
-	    self.errors.push(anyhow!("duplicate declaration of {}", name));
-	} else if self.imported_names.contains(&name) {
-	    let error = format!("{} declarted in {} has the same name as an import", name, file.filename());
-	    self.add_error(error);
-	} else {
-	    self.declared_names.insert(name, file.filename());
-	}
+        if let Some(other_file) = self.declared_names.get(&name) {
+            eprintln!("duplicate declaration of {} in {} and {}", name, other_file, file.filename());
+            self.errors.push(anyhow!("duplicate declaration of {}", name));
+        } else if self.imported_names.contains(&name) {
+            let error = format!("{} declarted in {} has the same name as an import", name, file.filename());
+            self.add_error(error);
+        } else {
+            self.declared_names.insert(name, file.filename());
+        }
     }
 
     fn add_error(&mut self, message: String) {
-	eprintln!("{}", message);
-	self.errors.push(anyhow!("{}", message));
+        eprintln!("{}", message);
+        self.errors.push(anyhow!("{}", message));
     }
 
     // Check that the package name is the expected value (if it is provided)
     // or when not provided, make sure that is allowed.
     fn check_package_decl(&mut self, file: &ParsedFile) {
-	let first_decl = if let Some(decl) = file.syntax.declarations.get(0) {
+        let first_decl = if let Some(decl) = file.syntax.declarations.get(0) {
             decl
-	} else {
+        } else {
             // ignore empty files
-	    return;
-	};
+            return;
+        };
 
-	if let ast::Declaration::PackageDecl(name) = first_decl {
+        if let ast::Declaration::PackageDecl(name) = first_decl {
             if *name != self.expected_name {
-		eprintln!(
+                eprintln!(
                     "file {} should declare package {} but declares package {} instead",
                     file.syntax.filename, self.expected_name, name
-		);
-		self.errors.push(anyhow!("wrong package"));
+                );
+                self.errors.push(anyhow!("wrong package"));
             }
-	} else if !self.allowed_to_skip_package_decl {
+        } else if !self.allowed_to_skip_package_decl {
             eprintln!(
-		"file {} should declare package {} but doesn't",
-		file.syntax.filename, self.expected_name
+                "file {} should declare package {} but doesn't",
+                file.syntax.filename, self.expected_name
             );
-	    self.errors.push(anyhow!("no package"));
-	}
+            self.errors.push(anyhow!("no package"));
+        }
     }
 }
 
@@ -243,10 +243,10 @@ impl<'a> CheckState<'a> {
         use ast::Declaration::*;
 
         for declaration in self.syntax.declarations.iter() {
-	    if let TypeDecl(tdecl, _) = declaration {
+            if let TypeDecl(tdecl, _) = declaration {
                 // as a side-effect, this writes the type decl to self.types_declared
                 self.check_duplicate_type_decl(*tdecl);
-	    }
+            }
         }
     }
 
@@ -338,8 +338,8 @@ impl<'a> CheckState<'a> {
                 self.check_enum_type(enum_type);
             }
             Class(class_type) => {
-		let class_name = self.syntax.get_type(defined).declared_name()
-		    .expect("classes must have defined names");
+                let class_name = self.syntax.get_type(defined).declared_name()
+                    .expect("classes must have defined names");
                 self.check_class_type(&class_name, class_type);
             }
         }
@@ -494,43 +494,43 @@ mod test {
     use crate::parser::test_helper::tokenize_and_parse_with_name;
 
     fn parse_nth_file(n: usize,  file: &str) -> ast::Syntax {
-	let name = format!("file_{}.ikko", n);
+        let name = format!("file_{}.ikko", n);
         tokenize_and_parse_with_name(file, &name).expect("cannot parse example in test")
     }
 
     fn get_error_from_check(package_name: &str, files: &[&str]) -> Option<String> {
-	let syntaxes = files.iter().enumerate().map(|(idx, file)| parse_nth_file(idx, *file));
-	let parsed_files = syntaxes.map(|syntax| ParsedFile{syntax}).collect();
-	let package = ParsedPackage{
-	    package_name: package_name.into(),
-	    files: parsed_files,
-	};
-	match check(&package) {
-	    Ok(_) => None,
-	    Err(err) => Some(format!("{}", err)),
-	}
+        let syntaxes = files.iter().enumerate().map(|(idx, file)| parse_nth_file(idx, *file));
+        let parsed_files = syntaxes.map(|syntax| ParsedFile{syntax}).collect();
+        let package = ParsedPackage{
+            package_name: package_name.into(),
+            files: parsed_files,
+        };
+        match check(&package) {
+            Ok(_) => None,
+            Err(err) => Some(format!("{}", err)),
+        }
     }
 
     fn error_matches(error: &str, pattern: &str) -> bool {
         let re = Regex::new(pattern).unwrap();
-	re.is_match(error)
+        re.is_match(error)
     }
 
     fn expect_package_ok(package_name: &str, files: &[&str]) {
-	let error = get_error_from_check(package_name, files);
-	assert!(error.is_none(), "{:?}", error);
+        let error = get_error_from_check(package_name, files);
+        assert!(error.is_none(), "{:?}", error);
     }
 
     fn expect_package_has_error(package_name: &str, files: &[&str], error_pattern: &str) {
-	let error = get_error_from_check(package_name, files);
-	match error {
-	    None => panic!("expected an error, got none"),
-	    Some(message) => assert!(
-		error_matches(&message, error_pattern),
-		"expected error {:?} to match the pattern {}",
-		message, error_pattern,
-	    ),
-	}
+        let error = get_error_from_check(package_name, files);
+        match error {
+            None => panic!("expected an error, got none"),
+            Some(message) => assert!(
+                error_matches(&message, error_pattern),
+                "expected error {:?} to match the pattern {}",
+                message, error_pattern,
+            ),
+        }
     }
 
     #[test]
@@ -540,7 +540,7 @@ package foo
 
 import a.b
 "#;
-	expect_package_ok("foo", &[file]);
+        expect_package_ok("foo", &[file]);
     }
 
     #[test]
@@ -560,7 +560,7 @@ package foo
 "#;
         expect_package_has_error(
             "main",
-	    &[file],
+            &[file],
             r"package declaration must be the first declaration in the file",
         );
     }
@@ -596,28 +596,28 @@ import x.y.c
 
     #[test]
     fn test_two_files_with_same_import() {
-	let file1 = "import a.b.c";
-	let file2 = "import a.b.c";
-	expect_package_ok("main", &[file1, file2]);
+        let file1 = "import a.b.c";
+        let file2 = "import a.b.c";
+        expect_package_ok("main", &[file1, file2]);
     }
 
     #[test]
     fn test_two_files_with_conflicting_import() {
-	let file1 = "import a.b.c";
-	let file2 = "import x.y.c";
-	expect_package_has_error("main", &[file1, file2], r"already imported");
+        let file1 = "import a.b.c";
+        let file2 = "import x.y.c";
+        expect_package_has_error("main", &[file1, file2], r"already imported");
     }
 
     #[test]
     fn test_two_files_with_conflict_between_import_and_declaration() {
-	let file1 = "import x.foo";
-	let file2 = r#"
+        let file1 = "import x.foo";
+        let file2 = r#"
 fn foo():
   return
 "#;
-	// same result regardless of the order of the files
-	expect_package_has_error("main", &[file1, file2], "same name as an import");
-	expect_package_has_error("main", &[file2, file1], "same name as an import");
+        // same result regardless of the order of the files
+        expect_package_has_error("main", &[file1, file2], "same name as an import");
+        expect_package_has_error("main", &[file2, file1], "same name as an import");
     }
 
     #[test]
@@ -629,7 +629,7 @@ fn foo():
 import b
 "#;
         expect_package_has_error(
-	    "main",
+            "main",
             &[file],
             r"import statement must be above other declarations: import b",
         );
@@ -732,27 +732,27 @@ type String Int
 
     #[test]
     fn test_class_with_multiple_methods() {
-	let file = r#"
+        let file = r#"
 type Shape class:
   fn area(Self) Int
 
   fn color(Self) String
 "#;
-	expect_package_ok("main", &[file]);
+        expect_package_ok("main", &[file]);
     }
 
     #[test]
     fn test_class_with_duplicate_method_names() {
-	let file = r#"
+        let file = r#"
 type Shape class:
   fn area(Self) Int
   fn color(Self) String
   fn area(Self) Float
 "#;
-	expect_package_has_error(
-	    "main", &[file],
-	    r"class Shape has multiple definitions of method area"
-	);
+        expect_package_has_error(
+            "main", &[file],
+            r"class Shape has multiple definitions of method area"
+        );
     }
 
     // TODO

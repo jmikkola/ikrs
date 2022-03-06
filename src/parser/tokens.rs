@@ -77,13 +77,13 @@ pub enum Comment {
 
 impl Token {
     pub fn first_line_length(&self) -> usize {
-	// lazy way: render it as a string then go count characters
-	let rendered = format!("{}", self);
-	if let Some(size) = rendered.find('\n') {
-	    size
-	} else {
-	    rendered.len()
-	}
+        // lazy way: render it as a string then go count characters
+        let rendered = format!("{}", self);
+        if let Some(size) = rendered.find('\n') {
+            size
+        } else {
+            rendered.len()
+        }
     }
 }
 

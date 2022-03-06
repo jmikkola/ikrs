@@ -15,7 +15,7 @@ pub struct UnknownTokensError {}
 
 impl std::fmt::Display for UnknownTokensError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "UnknownTokensError")
+        write!(f, "UnknownTokensError")
     }
 }
 
@@ -32,11 +32,11 @@ impl Tokens {
     }
 
     pub fn get_error(&self) -> Result<(), UnknownTokensError> {
-	if self.saw_unknown {
-	    Err(UnknownTokensError{})
-	} else {
-	    Ok(())
-	}
+        if self.saw_unknown {
+            Err(UnknownTokensError{})
+        } else {
+            Ok(())
+        }
     }
 
     // pub fn just_tokens(&self) -> Vec<Token> {
@@ -47,17 +47,17 @@ impl Tokens {
 
     // Show where in the file the bad tokens were found
     pub fn display_unknown(&self) -> Vec<DisplaySelection> {
-	if !self.saw_unknown {
-	    return Vec::new();
-	}
+        if !self.saw_unknown {
+            return Vec::new();
+        }
 
         self.tokens.iter()
             .filter_map(|(tok, loc)| match tok {
                 Token::Unknown(s) => {
-		    let region = Region::for_word(*loc, s.len());
-		    let selection = region.to_display_selection(2);
-		    Some(selection)
-		},
+                    let region = Region::for_word(*loc, s.len());
+                    let selection = region.to_display_selection(2);
+                    Some(selection)
+                },
                 _ => None,
             })
             .collect()
@@ -299,13 +299,13 @@ pub fn tokenize(text: &str) -> Tokens {
             Unknown => {
                 debug_assert!(!current.is_empty());
                 if !(c.is_whitespace()
-		     || c == '('
-		     || c == ')'
-		     || c == '['
-		     || c == ']'
-		     || c == '{'
-		     || c == '}'
-		     || c == ':')
+                     || c == '('
+                     || c == ')'
+                     || c == '['
+                     || c == ']'
+                     || c == '{'
+                     || c == '}'
+                     || c == ':')
                 {
                     current.push(c);
                     continue;
@@ -560,11 +560,11 @@ mod test {
     }
 
     fn get_token_locations(input: &str) -> Vec<Location> {
-	tokens(input)
-	    .iter()
-	    .map(|(_, loc)| loc)
-	    .cloned()
-	    .collect()
+        tokens(input)
+            .iter()
+            .map(|(_, loc)| loc)
+            .cloned()
+            .collect()
     }
 
     fn get_comments(input: &str) -> Vec<Comment> {
@@ -584,7 +584,7 @@ mod test {
     }
 
     fn assert_locations(expected: Vec<Location>, input: &str) {
-	assert_eq!(expected, get_token_locations(input), "for input {:?}", input);
+        assert_eq!(expected, get_token_locations(input), "for input {:?}", input);
     }
 
     fn assert_comments(expected: Vec<Comment>, input: &str) {
@@ -592,7 +592,7 @@ mod test {
     }
 
     fn loc(col: u32, line: u32) -> Location {
-	Location{col, line}
+        Location{col, line}
     }
 
     #[test]
@@ -603,20 +603,20 @@ mod test {
 
     #[test]
     fn test_locations() {
-	assert_locations(vec![], "");
-	assert_locations(vec![loc(0, 0)], "xyz");
-	assert_locations(vec![loc(1, 0)], " xyz");
-	assert_locations(vec![loc(0, 0), loc(0, 1)], "\nxyz");
-	assert_locations(vec![loc(4, 0), loc(0, 1)], "    \nxyz");
-	assert_locations(vec![loc(0, 0), loc(1, 1)], "\n xyz");
-	assert_locations(
-	    vec![
-		loc(0, 0), loc(0, 1), // newlines
-		loc(2, 2), loc(6, 2), loc(8, 2), // let c =
-		loc(10, 2), loc(13, 2), loc(14, 2), // foo()
-	    ],
-	    "\n\n  let c = foo()"
-	);
+        assert_locations(vec![], "");
+        assert_locations(vec![loc(0, 0)], "xyz");
+        assert_locations(vec![loc(1, 0)], " xyz");
+        assert_locations(vec![loc(0, 0), loc(0, 1)], "\nxyz");
+        assert_locations(vec![loc(4, 0), loc(0, 1)], "    \nxyz");
+        assert_locations(vec![loc(0, 0), loc(1, 1)], "\n xyz");
+        assert_locations(
+            vec![
+                loc(0, 0), loc(0, 1), // newlines
+                loc(2, 2), loc(6, 2), loc(8, 2), // let c =
+                loc(10, 2), loc(13, 2), loc(14, 2), // foo()
+            ],
+            "\n\n  let c = foo()"
+        );
     }
 
     #[test]
@@ -730,7 +730,7 @@ mod test {
 
     #[test]
     fn test_renders_unknown_tokens() {
-	let file = r#"
+        let file = r#"
 // should not be included in the context
 fn main():
    let a = 1
@@ -738,23 +738,23 @@ fn main():
    return
 "#;
 
-	let tokens = tokenize(file);
-	let unknown = tokens.display_unknown();
-	assert_eq!(1, unknown.len());
+        let tokens = tokenize(file);
+        let unknown = tokens.display_unknown();
+        assert_eq!(1, unknown.len());
 
-	let rendered = unknown[0].render_selection(file);
-	let expected = r#"fn main():
+        let rendered = unknown[0].render_selection(file);
+        let expected = r#"fn main():
    let a = 1
    ``| // bad token
    ^^^
    return
 "#;
-	assert_eq!(expected, rendered);
+        assert_eq!(expected, rendered);
     }
 
     #[test]
     fn test_get_error() {
-	assert!(tokenize("fn main").get_error().is_ok());
-	assert!(tokenize("???").get_error().is_err());
+        assert!(tokenize("fn main").get_error().is_ok());
+        assert!(tokenize("???").get_error().is_err());
     }
 }

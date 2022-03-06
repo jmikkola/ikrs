@@ -72,18 +72,18 @@ pub struct ParseError {
 
 impl ParseError {
     pub fn render(&self, file: &str) -> String {
-	format!(
-	    "{} at {}:\n{}",
-	    self.message,
-	    self.location.highlight.start,
-	    self.location.render_selection(file))
+        format!(
+            "{} at {}:\n{}",
+            self.message,
+            self.location.highlight.start,
+            self.location.render_selection(file))
     }
 }
 
 impl std::fmt::Display for ParseError {
     // This isn't the main way to render one of these errors.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	write!(f, "Parse error: {} at {}", self.message, self.location)
+        write!(f, "Parse error: {} at {}", self.message, self.location)
     }
 }
 
@@ -146,9 +146,9 @@ impl Syntax {
     }
 
     pub fn render_errors(&self, file: &str) -> String {
-	self.errors.iter()
-	    .map(|err| err.render(file))
-	    .join("\n")
+        self.errors.iter()
+            .map(|err| err.render(file))
+            .join("\n")
     }
 
     pub fn add_expression(&mut self, expr: Expression) -> ExpressionRef {
