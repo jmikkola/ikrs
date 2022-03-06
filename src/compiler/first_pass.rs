@@ -401,6 +401,7 @@ impl<'a> CheckState<'a> {
     fn check_class_type(&mut self, class_name: &str, class_type: &ast::ClassType) {
         // TODO: Record the class definition and its superclasses
 
+	// Check for duplicated method names
 	// O(n^2), but n should be small in sane code
 	for (i, method1) in class_type.methods.iter().enumerate() {
 	    for (j, method2) in class_type.methods.iter().enumerate() {
@@ -411,8 +412,10 @@ impl<'a> CheckState<'a> {
 	    }
 	}
 
-        // TODO: Ensure method names are not duplicated
-        // TODO: Ensure method names do not overlap with other defined function names
+	// I don't _think_ it's necessary to ensure that the method names don't overlap with other
+	// function names defined in the module, becuase the methods will be called with the
+	// dot syntax (either value.method() or Type.method()), so it won't be ambiguous.
+
         // TODO: Check argument types/constraints on the methods
     }
 
