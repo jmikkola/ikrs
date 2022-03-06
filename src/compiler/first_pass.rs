@@ -338,7 +338,9 @@ impl<'a> CheckState<'a> {
                 self.check_enum_type(enum_type);
             }
             Class(class_type) => {
-                self.check_class_type(class_type);
+		let class_name = self.syntax.get_type(defined).declared_name()
+		    .expect("classes must have defined names");
+                self.check_class_type(&class_name, class_type);
             }
         }
     }
@@ -396,8 +398,19 @@ impl<'a> CheckState<'a> {
 
     // TODO: If the type is a class, record information for checking
     // the class hierarchy and check method definition soundness
-    fn check_class_type(&mut self, _class_type: &ast::ClassType) {
+    fn check_class_type(&mut self, class_name: &str, class_type: &ast::ClassType) {
         // TODO: Record the class definition and its superclasses
+
+	// O(n^2), but n should be small in sane code
+	for (i, method1) in class_type.methods.iter().enumerate() {
+	    for (j, method2) in class_type.methods.iter().enumerate() {
+		if i != j && method1.name == method2.name {
+		    let err = format!("class {} has multiple definitions of method {}", class_name, method1.name);
+		    self.errors.push(err);
+		}
+	    }
+	}
+
         // TODO: Ensure method names are not duplicated
         // TODO: Ensure method names do not overlap with other defined function names
         // TODO: Check argument types/constraints on the methods
@@ -712,6 +725,31 @@ type A enum:
 type String Int
 "#;
         expect_package_has_error("main", &[file], r"cannot redefine builtin type String");
+    }
+
+    #[test]
+    fn test_class_with_multiple_methods() {
+	let file = r#"
+type Shape class:
+  fn area(Self) Int
+
+  fn color(Self) String
+"#;
+	expect_package_ok("main", &[file]);
+    }
+
+    #[test]
+    fn test_class_with_duplicate_method_names() {
+	let file = r#"
+type Shape class:
+  fn area(Self) Int
+  fn color(Self) String
+  fn area(Self) Float
+"#;
+	expect_package_has_error(
+	    "main", &[file],
+	    r"class Shape has multiple definitions of method area"
+	);
     }
 
     // TODO
